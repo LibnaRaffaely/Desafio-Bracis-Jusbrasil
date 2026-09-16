@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Dados da competição: privados, nunca versionar
+data/*
+!data/README.md
+# Gerados
+artifacts/
+outputs/
+.venv/
+*.pyc
+.ipynb_checkpoints/
+# Pesos de modelos
+models/
+*.gguf
+*.safetensors
+# Segredos locais
