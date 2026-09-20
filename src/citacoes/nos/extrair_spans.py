@@ -144,6 +144,16 @@ _JURIS_ABREV_RE = re.compile(
     re.IGNORECASE,
 )
 
+_TST_RE = re.compile(
+    r"(?:Processo\s+n[º°o]?\s+)?"
+    r"(?:TST[\s\-]+)?"
+    r"(?:[A-Z]{{1,5}}[\s\-]+)*"
+    r"(?:ED|ARR?|RR|AgR|AgInt|ED)[\s\-]+"
+    r"(?:[A-Z\-]+[\s\-]+)*"
+    r"\d{1,7}[\s\-\.]+\d{2}[\s\-\.]+\d{4}[\s\-\.]+\d[\s\-\.]+\d{2}[\s\-\.\n]+\d{4}",
+    re.IGNORECASE,
+)
+
 _CNJ_RE = re.compile(
     rf"(?:(?:{_CLASSE_COMP})\s*\n?\s*{_PREFIX_N})?"
     r"[\dOoIlSs]{5,7}"
@@ -183,7 +193,9 @@ def _extrair_regex(texto: str) -> list[EstadoCitacao]:
         spans.append(_make_span(m, texto, "jurisprudencia"))
     for m in _JURIS_CURTO_RE.finditer(texto):
         spans.append(_make_span(m, texto, "jurisprudencia"))
-    for m in _JURIS_ABREV_RE.finditer(texto):  
+    for m in _JURIS_ABREV_RE.finditer(texto):
+        spans.append(_make_span(m, texto, "jurisprudencia"))
+    for m in _TST_RE.finditer(texto):
         spans.append(_make_span(m, texto, "jurisprudencia"))
     return spans
 
@@ -207,7 +219,7 @@ _TRIBUNAIS_PAT = "|".join(
 _VAGO_RE = re.compile(
     rf"(?:{_GATILHOS})"
     rf"[\s\n]+(?:d[aoe]\s+)?(?:{_TRIBUNAIS_PAT})"
-    r"(?:[^\.\n]|\n(?!\n)){0,150}",  # permite \n simples, para em \n\n
+    r"(?:[^\.\n]|\n(?!\n)){0,150}",
     re.IGNORECASE,
 )
 
@@ -223,9 +235,50 @@ _CLASSE_VAGO_RE = re.compile(
 
 # Rcl/Reclamação vaga com ano e relator
 _RCL_VAGO_RE = re.compile(
-    r"Rcl(?:amação)?\s*(?:do\s+(?:STF|STJ|STM|TSE|TST))?"
-    r"\s*,?\s*de\s+\d{4}"
-    r"(?:[,\s]+Rel\.?\s+(?:Min\.?\s+)?[A-ZÁÉÍÓÚ][\w\s]{0,60})?",
+    r"Rcl(?:amação)?[\s\n]*"
+    r"(?:do[\s\n]+(?:STF|STJ|STM|TSE|TST))?"
+    r"[\s\n]*,?[\s\n]*de\s+\d{4}"
+    r"(?:[,\s\n]+Rel\.?[\s\n]*(?:Min\.?[\s\n]*)?"
+    r"[A-ZÁÉÍÓÚ][^,\.\n]{0,40})?",
+    re.IGNORECASE,
+)
+
+_VAGO_RELATORIA_RE = re.compile(
+    rf"(?:{_GATILHOS})"
+    rf"[\s\n]+(?:d[aoe]\s+)?(?:{_TRIBUNAIS_PAT})"
+    r"[\s\n]+(?:proferido\s+em|julgado\s+em|de)[\s\n]+\d{4}"
+    r"(?:[,\s\n]+(?:da\s+relatoria|sob\s+relatoria|pela\s+relatoria)\s+de\s+"
+    r"[A-ZÁÉÍÓÚ][^,\.\n]{0,40})?",
+    re.IGNORECASE,
+)
+
+
+_RECLAMACAO_TRIBUNAL_RE = re.compile(
+    r"Reclamação[\s\n]+do[\s\n]+"
+    r"(?:STF|STJ|STM|TSE|TST)"
+    r"[\s\n]*,[\s\n]*de[\s\n]+\d{4}"
+    r"(?:[,\s\n]+Rel\.?[\s\n]*(?:Min\.?[\s\n]*)?"
+    r"[A-ZÁÉÍÓÚ][^,\.\n]{0,40})?",
+    re.IGNORECASE,
+)
+
+
+_AR_NUM_RE = re.compile(
+    r"\bAR[\s\n]*n\.?\s*\d[\d\.\s]*"
+    rf"{_UF}",
+    re.IGNORECASE,
+)
+
+_CLASSE_EXTENSO_RE = re.compile(
+    r"(?:Agravo[\s\n]+(?:Regimental|Interno|em[\s\n]+Recurso[\s\n]+Especial)"
+    r"|Embargos?[\s\n]+de[\s\n]+Declara[çc][aã]o"
+    r"|Recurso[\s\n]+em[\s\n]+(?:Habeas[\s\n]+Corpus|Mandado[\s\n]+de[\s\n]+Segurança)"
+    r"|Agravo[\s\n]+de[\s\n]+Instrumento"
+    r"|Suspens[aã]o[\s\n]+de[\s\n]+Liminar)"
+    r"(?:[\s\n]+(?:no|na|nos|nas|em|do|da))*[\s\n]+"
+    r"(?:[A-Z][\w\s\n]+[\s\n]+)?"
+    rf"{_PREFIX_N}\d[\d\.\s\-]*"
+    rf"{_UF}",
     re.IGNORECASE,
 )
 
@@ -234,8 +287,7 @@ def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
     spans = []
     for m in _VAGO_RE.finditer(texto):
         spans.append(EstadoCitacao(
-            inicio=m.start(),
-            fim=m.end(),
+            inicio=m.start(), fim=m.end(),
             trecho=texto[m.start():m.end()],
             tipo_bruto="jurisprudencia",
             tem_identificador=False,
@@ -243,20 +295,50 @@ def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
         ))
     for m in _CLASSE_VAGO_RE.finditer(texto):
         spans.append(EstadoCitacao(
-            inicio=m.start(),
-            fim=m.end(),
+            inicio=m.start(), fim=m.end(),
             trecho=texto[m.start():m.end()],
             tipo_bruto="jurisprudencia",
             tem_identificador=False,
             origem="heuristica_camada2",
         ))
-    for m in _RCL_VAGO_RE.finditer(texto):  
+    for m in _RCL_VAGO_RE.finditer(texto):
         spans.append(EstadoCitacao(
-            inicio=m.start(),
-            fim=m.end(),
+            inicio=m.start(), fim=m.end(),
             trecho=texto[m.start():m.end()],
             tipo_bruto="jurisprudencia",
             tem_identificador=False,
+            origem="heuristica_camada2",
+        ))
+    for m in _VAGO_RELATORIA_RE.finditer(texto):
+        spans.append(EstadoCitacao(
+            inicio=m.start(), fim=m.end(),
+            trecho=texto[m.start():m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=False,
+            origem="heuristica_camada2",
+        ))
+    for m in _RECLAMACAO_TRIBUNAL_RE.finditer(texto):
+        spans.append(EstadoCitacao(
+            inicio=m.start(), fim=m.end(),
+            trecho=texto[m.start():m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=False,
+            origem="heuristica_camada2",
+        ))
+    for m in _AR_NUM_RE.finditer(texto):
+        spans.append(EstadoCitacao(
+            inicio=m.start(), fim=m.end(),
+            trecho=texto[m.start():m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=True,
+            origem="heuristica_camada2",
+        ))
+    for m in _CLASSE_EXTENSO_RE.finditer(texto):
+        spans.append(EstadoCitacao(
+            inicio=m.start(), fim=m.end(),
+            trecho=texto[m.start():m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=True,
             origem="heuristica_camada2",
         ))
     return spans
