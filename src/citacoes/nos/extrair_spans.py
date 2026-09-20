@@ -117,3 +117,26 @@ _CNJ_RE = re.compile(
     rf"{_UF}",
     re.IGNORECASE,
 )
+
+def _make_span(m: re.Match, texto: str, tipo: str) -> EstadoCitacao:
+    return EstadoCitacao(
+        inicio=m.start(),
+        fim=m.end(),
+        trecho=texto[m.start() : m.end()],
+        tipo_bruto=tipo,
+        tem_identificador=True,
+        origem="regex_camada1",
+    )
+
+
+def _extrair_regex(texto: str) -> list[EstadoCitacao]:
+    spans = []
+    for m in _LEI_RE.finditer(texto):
+        spans.append(_make_span(m, texto, "lei"))
+    for m in _SUMULA_RE.finditer(texto):
+        spans.append(_make_span(m, texto, "jurisprudencia"))
+    for m in _CNJ_RE.finditer(texto):
+        spans.append(_make_span(m, texto, "jurisprudencia"))
+    for m in _JURIS_CURTO_RE.finditer(texto):
+        spans.append(_make_span(m, texto, "jurisprudencia"))
+    return spans
