@@ -49,9 +49,10 @@ _CNJ_LIMPO = re.compile(r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}")
 
 
 def _e_distrator(span: EstadoCitacao, cabecalho_fim: int) -> bool:
-    if span.inicio < cabecalho_fim and _CNJ_LIMPO.search(span.trecho):
+    margem = cabecalho_fim + 50  # tolerância para \n depois do CNJ
+    if span.inicio < margem and _CNJ_LIMPO.search(span.trecho):
         return True
-    return bool(_DISTRATOR_RE.match(span.trecho))
+    return bool(_DISTRATOR_RE.match(span.trec))
 
 
 
@@ -121,6 +122,7 @@ _CNJ_RE = re.compile(
     r"[\s\n]*\.[\s\n]*"
     r"[\dOoIlSs]{4}"
     rf"{_UF}",
+    r"(?=\s|$|[^\w])",
     re.IGNORECASE,
 )
 
