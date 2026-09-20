@@ -202,3 +202,22 @@ def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
 
 def _extrair_llm(texto: str, modelo: object) -> list[EstadoCitacao]:
     return []
+
+
+### ---------------------- nó principal ----------------------------: 
+
+def extrair_spans(estado: EstadoDocumento, runtime: "Runtime[Contexto]") -> dict:
+    texto = estado.texto
+    cabecalho_fim = len(extrair_cabecalho(texto))
+
+    spans: list[EstadoCitacao] = []
+    spans += _extrair_regex(texto)
+    spans += _extrair_heuristica(texto)
+
+    if runtime.context.usar_extrator_llm and runtime.context.modelo_llm:
+        spans += _extrair_llm(texto, runtime.context.modelo_llm)
+
+    spans = [s for s in spans if not _e_distrator(s, cabecalho_fim)]
+    spans = _deduplicar(spans)
+
+    return {"spans": spans}
