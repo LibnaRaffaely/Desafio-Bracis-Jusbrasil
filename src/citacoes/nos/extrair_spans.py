@@ -49,7 +49,7 @@ def _e_distrator(span: EstadoCitacao, cabecalho_fim: int) -> bool:
 
 
 
-### CAMADA 1 REGEX: 
+### ---------------------- CAMADA 1 REGEX----------------------------: 
 
 #  nº, n°, No, N., etc.
 _PREFIX_N = r"(?:[Nn][º°o]?\.?\s*)?"
