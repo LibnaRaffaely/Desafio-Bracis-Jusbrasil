@@ -12,6 +12,12 @@ if TYPE_CHECKING:
 
 ##  --------------------Deduplicação por IoU--------------------------
 
+_SPAN_MINIMO = 8
+
+def _filtrar_curtos(spans: list[EstadoCitacao]) -> list[EstadoCitacao]:
+    return [s for s in spans if (s.fim - s.inicio) >= _SPAN_MINIMO]
+
+
 def _iou(a: EstadoCitacao, b: EstadoCitacao) -> float:
     overlap = max(0, min(a.fim, b.fim) - max(a.inicio, b.inicio))
     union = max(a.fim, b.fim) - min(a.inicio, b.inicio)
@@ -92,7 +98,7 @@ _VARIANTES = sorted(
 
 _CLASSE = "|".join(re.escape(v) for v in _VARIANTES)
 _CONECTOR = r"(?:\s+(?:no|na|nos|nas|em)\s+)"
-_CLASSE_COMP = rf"(?:{_CLASSE})(?:{_CONECTOR}(?:{_CLASSE}))*"
+_CLASSE_COMP = rf"(?:\b(?:{_CLASSE})\b)(?:{_CONECTOR}(?:\b(?:{_CLASSE})\b))*"
 
 _NUM_CURTO = r"[\d\.OoIlSs]+(?:[\s\-]+[\d\.OoIlSs]+)*"
 
@@ -217,6 +223,7 @@ def extrair_spans(estado: EstadoDocumento, runtime: "Runtime[Contexto]") -> dict
     if runtime.context.usar_extrator_llm and runtime.context.modelo_llm:
         spans += _extrair_llm(texto, runtime.context.modelo_llm)
 
+    spans = _filtrar_curtos(spans)  # novo
     spans = [s for s in spans if not _e_distrator(s, cabecalho_fim)]
     spans = _deduplicar(spans)
 
