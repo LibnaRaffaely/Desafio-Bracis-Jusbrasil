@@ -111,7 +111,7 @@ _CLASSE = "|".join(re.escape(v) for v in _VARIANTES)
 _CONECTOR = r"(?:\s+(?:no|na|nos|nas|em)\s+)"
 _CLASSE_COMP = rf"(?:\b(?:{_CLASSE})\b)(?:{_CONECTOR}(?:\b(?:{_CLASSE})\b))*"
 
-_NUM_CURTO = r"[\d\.OoIlSs]+(?:[\s\-]+[\d\.OoIlSs]+)*"
+_NUM_CURTO = r"\d[\d\.OoIlSs]*(?:[\s\-]+[\d\.OoIlSs]+)*"
 
 _JURIS_CURTO_RE = re.compile(
     rf"(?:{_CLASSE_COMP})\s*\n?\s*{_PREFIX_N}(?:{_NUM_CURTO}){_UF}",
