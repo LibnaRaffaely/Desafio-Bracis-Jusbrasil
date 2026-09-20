@@ -142,6 +142,9 @@ def _extrair_regex(texto: str) -> list[EstadoCitacao]:
     return spans
 
 
+### ---------------------- CAMADA 2 heuristica----------------------------: 
+
+
 _GATILHOS = (
     r"(?:julgado|acórdão|decisão|precedente"
     r"|entendimento\s+(?:sumulado|consolidado|firmado|pacífico))"
@@ -193,3 +196,9 @@ def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
             origem="heuristica_camada2",
         ))
     return spans
+
+
+### ---------------------- CAMADA 3 LLM (esqueleto)----------------------------: 
+
+def _extrair_llm(texto: str, modelo: object) -> list[EstadoCitacao]:
+    return []
