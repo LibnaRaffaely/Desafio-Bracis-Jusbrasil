@@ -101,6 +101,14 @@ _SUMULA_RE = re.compile(
 )
 
 
+
+_CLASSES_EXTRAS: dict[str, tuple[str, ...]] = {
+    "REsp": ("Rec. Esp.", "R.Esp.", "Recurso Especial Eleitoral"),
+    "AgInt": ("Ag. Int.",),
+    "AgREsp": ("AgREsp",),
+    "Rcl": ("Recl.",),
+}
+
 _VARIANTES = sorted(
     (v for vs in CLASSES_PROCESSUAIS.values() for v in vs),
     key=len,
@@ -115,6 +123,24 @@ _NUM_CURTO = r"\d[\d\.OoIlSs]*(?:[\s\-]+[\d\.OoIlSs]+)*"
 
 _JURIS_CURTO_RE = re.compile(
     rf"(?:{_CLASSE_COMP})\s*\n?\s*{_PREFIX_N}(?:{_NUM_CURTO}){_UF}",
+    re.IGNORECASE,
+)
+
+_ABREV_ESPECIFICAS = (
+    r"Rec\.?\s+Esp\."
+    r"|R\.Esp\."
+    r"|Ag\.?\s+Int\."
+    r"|Recl\."
+    r"|AgREsp"
+    r"|RMS"
+    r"|AG\.?\s*REG\."
+)
+
+_JURIS_ABREV_RE = re.compile(
+    rf"(?:{_ABREV_ESPECIFICAS})"
+    rf"\s*\n?\s*{_PREFIX_N}"
+    r"\d[\d\.OoIlSs\s\-]*"
+    rf"{_UF}",
     re.IGNORECASE,
 )
 
@@ -157,6 +183,8 @@ def _extrair_regex(texto: str) -> list[EstadoCitacao]:
         spans.append(_make_span(m, texto, "jurisprudencia"))
     for m in _JURIS_CURTO_RE.finditer(texto):
         spans.append(_make_span(m, texto, "jurisprudencia"))
+    for m in _JURIS_ABREV_RE.finditer(texto):  
+        spans.append(_make_span(m, texto, "jurisprudencia"))
     return spans
 
 
@@ -193,6 +221,14 @@ _CLASSE_VAGO_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Rcl/Reclamação vaga com ano e relator
+_RCL_VAGO_RE = re.compile(
+    r"Rcl(?:amação)?\s*(?:do\s+(?:STF|STJ|STM|TSE|TST))?"
+    r"\s*,?\s*de\s+\d{4}"
+    r"(?:[,\s]+Rel\.?\s+(?:Min\.?\s+)?[A-ZÁÉÍÓÚ][\w\s]{0,60})?",
+    re.IGNORECASE,
+)
+
 
 def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
     spans = []
@@ -200,7 +236,7 @@ def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
         spans.append(EstadoCitacao(
             inicio=m.start(),
             fim=m.end(),
-            trecho=texto[m.start() : m.end()],
+            trecho=texto[m.start():m.end()],
             tipo_bruto="jurisprudencia",
             tem_identificador=False,
             origem="heuristica_camada2",
@@ -209,7 +245,16 @@ def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
         spans.append(EstadoCitacao(
             inicio=m.start(),
             fim=m.end(),
-            trecho=texto[m.start() : m.end()],
+            trecho=texto[m.start():m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=False,
+            origem="heuristica_camada2",
+        ))
+    for m in _RCL_VAGO_RE.finditer(texto):  
+        spans.append(EstadoCitacao(
+            inicio=m.start(),
+            fim=m.end(),
+            trecho=texto[m.start():m.end()],
             tipo_bruto="jurisprudencia",
             tem_identificador=False,
             origem="heuristica_camada2",
@@ -236,7 +281,7 @@ def extrair_spans(estado: EstadoDocumento, runtime: "Runtime[Contexto]") -> dict
     if runtime.context.usar_extrator_llm and runtime.context.modelo_llm:
         spans += _extrair_llm(texto, runtime.context.modelo_llm)
 
-    spans = _filtrar_curtos(spans)  # novo
+    spans = _filtrar_curtos(spans)  
     spans = [s for s in spans if not _e_distrator(s, cabecalho_fim)]
     spans = _deduplicar(spans)
 
