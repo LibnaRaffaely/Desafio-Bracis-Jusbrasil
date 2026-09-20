@@ -52,7 +52,7 @@ def _e_distrator(span: EstadoCitacao, cabecalho_fim: int) -> bool:
     margem = cabecalho_fim + 50  # tolerância para \n depois do CNJ
     if span.inicio < margem and _CNJ_LIMPO.search(span.trecho):
         return True
-    return bool(_DISTRATOR_RE.match(span.trec))
+    return bool(_DISTRATOR_RE.match(span.trecho))
 
 
 
@@ -64,20 +64,30 @@ _PREFIX_N = r"(?:[Nn][º°o]?\.?\s*)?"
 _UF = r"(?:[\s/\-\(]+[A-Z]{2}\)?)?"
 
 _DIPLOMA = (
+    r"(?:"
     r"Lei\s+(?:Complementar\s+)?n[º°o]?\.?\s*[\d\.\s]+[/\s]\d{4}"
-    r"|C[oó]digo[\s\w]{0,40}"
+    r"|C[oó]digo\s+(?:de\s+)?(?:Processo\s+)?(?:Civil|Penal|Militar|Eleitoral"
+    r"|Defesa\s+do\s+Consumidor|Tribut[aá]rio\s+Nacional)"
     r"|Consolida[çc][aã]o\s+das\s+Leis\s+do\s+Trabalho"
-    r"|Constitui[çc][aã]o[\s\w\n]{0,40}"
-    r"|CLT|CPC|CP(?:P|M)?|CDC|CTN|ECA|Código\s+Eleitoral"
+    r"|Constitui[çc][aã]o(?:\s+Federal|\s+da\s+Rep[uú]blica)?"
+    r"|Estatuto\s+da\s+Crian[çc]a\s+e\s+do\s+Adolescente"
+    r"|CLT|CPC|CP(?:P|M)?|CDC|CTN|ECA|CF"
+    r"|C[oó]digo\s+Eleitoral"
+    r")"
 )
 
 # Lei: art./artigo + número + incisos + diploma
 _LEI_RE = re.compile(
     r"art(?:igo)?s?\.?\s*\n?\s*"
     r"[\d\.OoIlSs]+[º°o]?"
-    r"(?:[,\s]*(?:[§IVXLivxl]+|\d+)[º°o]?(?:-[A-Z])?"
-    r"|[,\s]+['\"]?[a-z]['\"]?)*"
-    r"(?:[,\s\n]+(?:d[aoe]\s+)?(?:" + _DIPLOMA + r"))?",
+    r"(?:"
+    r"[,\s]*(?:[§IVXLivxl]+|\d+)[º°o]?(?:-[A-Z])?"
+    r"|[,\s]+['\"]?[a-z]['\"]?"
+    r")*"
+    r"(?:"
+    r"[,\s\n]+(?:d[aoe]\s+)?"
+    rf"(?:{_DIPLOMA})"
+    r")?",
     re.IGNORECASE,
 )
 
@@ -121,7 +131,7 @@ _CNJ_RE = re.compile(
     r"[\dOoIlSs]{2}"
     r"[\s\n]*\.[\s\n]*"
     r"[\dOoIlSs]{4}"
-    rf"{_UF}",
+    rf"{_UF}"
     r"(?=\s|$|[^\w])",
     re.IGNORECASE,
 )
