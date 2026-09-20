@@ -29,3 +29,20 @@ def _deduplicar(spans: list[EstadoCitacao]) -> list[EstadoCitacao]:
         if not any(_iou(span, k) >= 0.5 for k in mantidos):
             mantidos.append(span)
     return mantidos
+
+
+_DISTRATOR_RE = re.compile(
+    r"Protocolo\s+n[º°o]?\.?\s*\d"
+    r"|\bOAB[/\s]\w+"
+    r"|\bfls?\.\s*\d"
+    r"|R\$\s*[\d\.,]+",
+    re.IGNORECASE,
+)
+
+_CNJ_LIMPO = re.compile(r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}")
+
+
+def _e_distrator(span: EstadoCitacao, cabecalho_fim: int) -> bool:
+    if span.inicio < cabecalho_fim and _CNJ_LIMPO.search(span.trecho):
+        return True
+    return bool(_DISTRATOR_RE.match(span.trecho))
