@@ -20,6 +20,17 @@ OrigemSpan = Literal["regex_camada1", "heuristica_camada2", "agente_extrator_llm
 MetodoBusca = Literal["catalogo", "lei_sumula", "sem_busca"]
 
 
+
+
+
+@dataclass
+class EstadoDocumento:
+    documento_id: str = ""
+    texto: str = ""
+    spans: list[EstadoCitacao] = field(default_factory=list)
+    citacoes: Annotated[list[EstadoCitacao], operator.add] = field(default_factory=list)
+    saida: dict | None = None
+
 @dataclass
 class EstadoCitacao:
     """Um span candidato percorrendo o subgrafo da citação."""
