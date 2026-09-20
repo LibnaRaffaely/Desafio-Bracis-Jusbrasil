@@ -140,3 +140,56 @@ def _extrair_regex(texto: str) -> list[EstadoCitacao]:
     for m in _JURIS_CURTO_RE.finditer(texto):
         spans.append(_make_span(m, texto, "jurisprudencia"))
     return spans
+
+
+_GATILHOS = (
+    r"(?:julgado|acórdão|decisão|precedente"
+    r"|entendimento\s+(?:sumulado|consolidado|firmado|pacífico))"
+)
+
+_TRIBUNAIS_PAT = "|".join(
+    re.escape(v)
+    for vs in TRIBUNAIS.values()
+    for v in sorted(vs, key=len, reverse=True)
+)
+
+# citação vaga: gatilho + tribunal sem nº
+# ex: "julgado do STF proferido em 2021 pela relatoria de Rosa Weber"
+_VAGO_RE = re.compile(
+    rf"(?:{_GATILHOS})"
+    rf"[\s\n]+(?:d[aoe]\s+)?(?:{_TRIBUNAIS_PAT})"
+    r"[^\.\n]{0,100}",
+    re.IGNORECASE,
+)
+
+# classe + ano + relator sem nº
+# ex: "Rcl de 2025, Rel. Min. CÁRMEN LÚCIA"
+_CLASSE_VAGO_RE = re.compile(
+    rf"(?:{_CLASSE_COMP})"
+    r"\s+de\s+\d{{4}}"
+    r"(?:[,\s]+Rel\.?\s+(?:Min\.?\s+)?[A-ZÁÉÍÓÚ][\w\s]{{0,40}})?",
+    re.IGNORECASE,
+)
+
+
+def _extrair_heuristica(texto: str) -> list[EstadoCitacao]:
+    spans = []
+    for m in _VAGO_RE.finditer(texto):
+        spans.append(EstadoCitacao(
+            inicio=m.start(),
+            fim=m.end(),
+            trecho=texto[m.start() : m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=False,
+            origem="heuristica_camada2",
+        ))
+    for m in _CLASSE_VAGO_RE.finditer(texto):
+        spans.append(EstadoCitacao(
+            inicio=m.start(),
+            fim=m.end(),
+            trecho=texto[m.start() : m.end()],
+            tipo_bruto="jurisprudencia",
+            tem_identificador=False,
+            origem="heuristica_camada2",
+        ))
+    return spans
