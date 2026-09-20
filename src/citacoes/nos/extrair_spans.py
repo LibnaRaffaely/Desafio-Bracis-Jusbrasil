@@ -82,3 +82,38 @@ _SUMULA_RE = re.compile(
     r"(?:\s+d[aoe]\s+(?:STF|STJ|TST|TSE|STM))?",
     re.IGNORECASE,
 )
+
+
+_VARIANTES = sorted(
+    (v for vs in CLASSES_PROCESSUAIS.values() for v in vs),
+    key=len,
+    reverse=True,
+)
+
+_CLASSE = "|".join(re.escape(v) for v in _VARIANTES)
+_CONECTOR = r"(?:\s+(?:no|na|nos|nas|em)\s+)"
+_CLASSE_COMP = rf"(?:{_CLASSE})(?:{_CONECTOR}(?:{_CLASSE}))*"
+
+_NUM_CURTO = r"[\d\.OoIlSs]+(?:[\s\-]+[\d\.OoIlSs]+)*"
+
+_JURIS_CURTO_RE = re.compile(
+    rf"(?:{_CLASSE_COMP})\s*\n?\s*{_PREFIX_N}(?:{_NUM_CURTO}){_UF}",
+    re.IGNORECASE,
+)
+
+_CNJ_RE = re.compile(
+    rf"(?:(?:{_CLASSE_COMP})\s*\n?\s*{_PREFIX_N})?"
+    r"[\dOoIlSs]{5,7}"
+    r"[\s\n]*[\-]{1,2}[\s\n]*"
+    r"[\dOoIlSs]{2}"
+    r"[\s\n]*\.[\s\n]*"
+    r"[\dOoIlSs]{4}"
+    r"[\s\n]*\.[\s\n]*"
+    r"[\dOoIlSs]"
+    r"[\s\n]*\.[\s\n]*"
+    r"[\dOoIlSs]{2}"
+    r"[\s\n]*\.[\s\n]*"
+    r"[\dOoIlSs]{4}"
+    rf"{_UF}",
+    re.IGNORECASE,
+)
