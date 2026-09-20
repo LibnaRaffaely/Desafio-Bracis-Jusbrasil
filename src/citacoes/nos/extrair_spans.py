@@ -179,7 +179,7 @@ _TRIBUNAIS_PAT = "|".join(
 _VAGO_RE = re.compile(
     rf"(?:{_GATILHOS})"
     rf"[\s\n]+(?:d[aoe]\s+)?(?:{_TRIBUNAIS_PAT})"
-    r"[^\.\n]{0,100}",
+    r"(?:[^\.\n]|\n(?!\n)){0,150}",  # permite \n simples, para em \n\n
     re.IGNORECASE,
 )
 
@@ -187,8 +187,9 @@ _VAGO_RE = re.compile(
 # ex: "Rcl de 2025, Rel. Min. CÁRMEN LÚCIA"
 _CLASSE_VAGO_RE = re.compile(
     rf"(?:{_CLASSE_COMP})"
-    r"\s+de\s+\d{{4}}"
-    r"(?:[,\s]+Rel\.?\s+(?:Min\.?\s+)?[A-ZÁÉÍÓÚ][\w\s]{{0,40}})?",
+    r"(?:\s|\n)+"
+    r"(?:de\s+)?\d{{4}}"
+    r"(?:[,\s\n]+Rel\.?\s+(?:Min\.?\s+)?[A-ZÁÉÍÓÚ][\w\s\n]{{0,60}})?",
     re.IGNORECASE,
 )
 
