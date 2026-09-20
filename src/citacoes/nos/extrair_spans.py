@@ -30,7 +30,7 @@ def _deduplicar(spans: list[EstadoCitacao]) -> list[EstadoCitacao]:
             mantidos.append(span)
     return mantidos
 
-
+## ------------------ Filtro distratores-------------------------------
 _DISTRATOR_RE = re.compile(
     r"Protocolo\s+n[º°o]?\.?\s*\d"
     r"|\bOAB[/\s]\w+"
@@ -46,3 +46,39 @@ def _e_distrator(span: EstadoCitacao, cabecalho_fim: int) -> bool:
     if span.inicio < cabecalho_fim and _CNJ_LIMPO.search(span.trecho):
         return True
     return bool(_DISTRATOR_RE.match(span.trecho))
+
+
+
+### CAMADA 1 REGEX: 
+
+#  nº, n°, No, N., etc.
+_PREFIX_N = r"(?:[Nn][º°o]?\.?\s*)?"
+
+_UF = r"(?:[\s/\-\(]+[A-Z]{2}\)?)?"
+
+_DIPLOMA = (
+    r"Lei\s+(?:Complementar\s+)?n[º°o]?\.?\s*[\d\.\s]+[/\s]\d{4}"
+    r"|C[oó]digo[\s\w]{0,40}"
+    r"|Consolida[çc][aã]o\s+das\s+Leis\s+do\s+Trabalho"
+    r"|Constitui[çc][aã]o[\s\w\n]{0,40}"
+    r"|CLT|CPC|CP(?:P|M)?|CDC|CTN|ECA|Código\s+Eleitoral"
+)
+
+# Lei: art./artigo + número + incisos + diploma
+_LEI_RE = re.compile(
+    r"art(?:igo)?s?\.?\s*\n?\s*"
+    r"[\d\.OoIlSs]+[º°o]?"
+    r"(?:[,\s]*(?:[§IVXLivxl]+|\d+)[º°o]?(?:-[A-Z])?"
+    r"|[,\s]+['\"]?[a-z]['\"]?)*"
+    r"(?:[,\s\n]+(?:d[aoe]\s+)?(?:" + _DIPLOMA + r"))?",
+    re.IGNORECASE,
+)
+
+_SUMULA_RE = re.compile(
+    r"S[uú]m(?:ula)?\.?\s+"
+    r"(?:Vinculante\s+)?"
+    r"n?[º°o]?\.?\s*"
+    r"[\d\.OoIlSs]+"
+    r"(?:\s+d[aoe]\s+(?:STF|STJ|TST|TSE|STM))?",
+    re.IGNORECASE,
+)
