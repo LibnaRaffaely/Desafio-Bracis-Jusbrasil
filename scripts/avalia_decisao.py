@@ -5,6 +5,7 @@ Uso:
     python scripts/avalia_decisao.py --dados /caminho/da/pasta_do_desafio
     python scripts/avalia_decisao.py --dados ... --modo isolado
     python scripts/avalia_decisao.py --dados ... --modo integrado
+    python scripts/avalia_decisao.py --dados ... --juiz falso
 
 Modos (docs/avaliacao.md, modo `resolucao`):
 
@@ -13,10 +14,22 @@ Modos (docs/avaliacao.md, modo `resolucao`):
   `incompleta` -> sem busca ou 2+ candidatos limpos), mais uma fatia com
   conflitos duros para exercitar o veto. Mede só o Módulo 4: tem de dar
   100%, senão o defeito é do nó de decisão. Sai com código 1 se não der.
+  Um segundo bloco, reportado à parte para não mexer na linha de base de
+  451 entradas, exercita os desempates determinísticos (duplicata de
+  conteúdo, margem de score) e os três desfechos do juiz (id válido, id
+  fora da lista, indecisão) com `JuizFalso`.
 - `integrado`: spans do gabarito como extração-oráculo -> `normalizar`
   (Módulo 2) -> `resolver` (Módulo 3, catálogo real) -> `decidir`. Tudo
   reportado separado por `metodo_busca`, porque o caminho de lei/súmula e o
-  de jurisprudência têm defeitos independentes a montante.
+  de jurisprudência têm defeitos independentes a montante. O diagnóstico
+  inclui contrafactuais (o que os desempates e o juiz mudariam hoje) e a
+  projeção de macro-F1 se todo `cardinalidade_2mais` virasse `real` certo.
+
+`--juiz {desligado,falso}` (padrão `desligado`): `falso` liga o juiz com
+`JuizFalso` — no isolado, respostas programadas por fatia; no integrado,
+um oráculo que devolve o id do gabarito quando ele está entre os
+candidatos (teto do que um juiz perfeito faria). Nenhum modo carrega
+pesos de modelo aqui; isso fica para quem tiver a GPU do envelope.
 
 O catálogo real demora para construir; fica em cache em `artifacts/`
 (gitignored) e é reaproveitado. Erros por citação vão para `outputs/`
@@ -32,6 +45,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import json
+import sqlite3
 import sys
 import time
 from collections import Counter, defaultdict
@@ -49,7 +65,16 @@ from citacoes.catalogo.construir import (  # noqa: E402
 from citacoes.catalogo.esquema import Candidato, CatalogoCanonico  # noqa: E402
 from citacoes.grafo.estados import EstadoCitacao  # noqa: E402
 from citacoes.nos.buscar_no_catalogo import resolver  # noqa: E402
-from citacoes.nos.decidir import ParametrosDecisao, decidir  # noqa: E402
+from citacoes.nos.decidir import (  # noqa: E402
+    Duplicatas,
+    DuplicatasPorAssinatura,
+    Juiz,
+    JuizDesligado,
+    JuizFalso,
+    ParametrosDecisao,
+    SemDuplicatas,
+    decidir,
+)
 from citacoes.nos.normalizar import normalizar  # noqa: E402
 
 CLASSES = ("real", "inventada", "incompleta")
@@ -59,10 +84,13 @@ METODOS_DECISAO = (
     "cardinalidade_1",
     "cardinalidade_2mais",
     "veto_quimera",
+    "desempate_duplicata",
+    "desempate_score",
     "juiz",
 )
 GAMMA = 0.5
 NOME_CACHE_CATALOGO = "catalogo_canonico.json"
+NOME_CACHE_ASSINATURAS = "assinaturas_conteudo.json"
 
 
 # ── gabarito ────────────────────────────────────────────────────────────────
@@ -333,12 +361,14 @@ def _escrever_csv_erros(resultados: list[Resultado], caminho: Path) -> None:
 # ── modo isolado ────────────────────────────────────────────────────────────
 
 
-def _candidato_sintetico(id_: int, tipo: str, conflitos: tuple[str, ...] = ()) -> Candidato:
+def _candidato_sintetico(
+    id_: int, tipo: str, conflitos: tuple[str, ...] = (), score: float = 1.0
+) -> Candidato:
     return Candidato(
         id=id_,
         tribunal=None,
         natureza="dispositivo" if tipo == "lei" else "acordao",
-        score=1.0,
+        score=score,
         conflitos_duros=conflitos,
     )
 
@@ -465,41 +495,212 @@ def _fatias_isoladas(
     return fatias
 
 
-def modo_isolado(gold: list[Gold], pasta_saida: Path) -> int:
-    _secao("MODO ISOLADO — entradas sintéticas derivadas do gabarito")
-    resultados: list[Resultado] = []
-    for fatia, g, estado, classe, id_esp, metodo in _fatias_isoladas(gold):
-        saida = decidir(estado, ParametrosDecisao())
-        resultados.append(Resultado(g, fatia, estado, saida, classe, id_esp, g.tipo, metodo))
+# Ids sintéticos das fatias de juiz, fora da faixa dos ids reais; o
+# `JuizFalso` responde pelo conjunto oferecido, então cada fatia tem o seu.
+IDS_JUIZ_VALIDO = (101, 102)
+IDS_JUIZ_FORA = (103, 104)
+IDS_JUIZ_INDECISO = (105, 106)
+ID_FORA_DA_LISTA = 999
+JUIZ_FALSO_ISOLADO = JuizFalso(
+    {
+        frozenset(IDS_JUIZ_VALIDO): IDS_JUIZ_VALIDO[0],
+        frozenset(IDS_JUIZ_FORA): ID_FORA_DA_LISTA,
+        frozenset(IDS_JUIZ_INDECISO): None,
+    }
+)
 
-    por_fatia: Counter = Counter()
-    erros: list[Resultado] = []
-    for r in resultados:
-        por_fatia[r.rotulo] += 1
-        ok = (
+
+@dataclass(frozen=True)
+class FatiaDesempate:
+    """Uma entrada do bloco de desempate/juiz: além do esperado, carrega os
+    parâmetros e o oráculo de duplicatas com que `decidir` deve rodar."""
+
+    nome: str
+    gold: Gold
+    estado: EstadoCitacao
+    classe: str
+    id_esperado: int | None
+    metodo: str
+    parametros: ParametrosDecisao
+    duplicatas: Duplicatas = SemDuplicatas()
+
+
+def _fatias_desempate(gold: list[Gold], juiz_ligado: bool) -> list[FatiaDesempate]:
+    """Bloco à parte: desempates determinísticos e os três desfechos do
+    juiz. Com o juiz desligado, as fatias de juiz esperam `incompleta` /
+    `cardinalidade_2mais` — prova de que o backend não é consultado."""
+    fatias: list[FatiaDesempate] = []
+    com_juiz = ParametrosDecisao(habilitar_juiz=juiz_ligado)
+    com_score = ParametrosDecisao(habilitar_desempate_score=True)
+    com_score_e_margem = ParametrosDecisao(habilitar_desempate_score=True, margem_minima=0.5)
+    for g in gold:
+        busca = "lei_sumula" if g.tipo == "lei" else "catalogo"
+        if g.classificacao == "real" and g.id_canonico is not None:
+            # 1a: o id do gabarito e um "clone" de texto com id maior → menor id
+            clone = g.id_canonico + 1
+            dup = DuplicatasPorAssinatura(
+                {g.id_canonico: f"sha-{g.citacao_id}", clone: f"sha-{g.citacao_id}"}
+            )
+            estado = _estado_sintetico(
+                g,
+                [_candidato_sintetico(clone, g.tipo), _candidato_sintetico(g.id_canonico, g.tipo)],
+                busca,
+            )
+            fatias.append(
+                FatiaDesempate(
+                    "desempate_duplicata",
+                    g,
+                    estado,
+                    "real",
+                    g.id_canonico,
+                    "desempate_duplicata",
+                    ParametrosDecisao(),
+                    dup,
+                )
+            )
+            # 1b: gabarito com score 1.0 contra 0.7 → maior score (só com a flag)
+            empate_score = [
+                _candidato_sintetico(7, g.tipo, score=0.7),
+                _candidato_sintetico(g.id_canonico, g.tipo, score=1.0),
+            ]
+            fatias.append(
+                FatiaDesempate(
+                    "desempate_score_ligado",
+                    g,
+                    _estado_sintetico(g, empate_score, busca),
+                    "real",
+                    g.id_canonico,
+                    "desempate_score",
+                    com_score,
+                )
+            )
+            fatias.append(
+                FatiaDesempate(
+                    "desempate_score_desligado",
+                    g,
+                    _estado_sintetico(g, empate_score, busca),
+                    "incompleta",
+                    None,
+                    "cardinalidade_2mais",
+                    ParametrosDecisao(),
+                )
+            )
+            fatias.append(
+                FatiaDesempate(
+                    "desempate_score_margem_insuficiente",
+                    g,
+                    _estado_sintetico(g, empate_score, busca),
+                    "incompleta",
+                    None,
+                    "cardinalidade_2mais",
+                    com_score_e_margem,
+                )
+            )
+        elif g.classificacao == "incompleta":
+            for nome, ids, classe, id_esp in (
+                ("juiz_id_valido", IDS_JUIZ_VALIDO, "real", IDS_JUIZ_VALIDO[0]),
+                ("juiz_id_fora_da_lista", IDS_JUIZ_FORA, "incompleta", None),
+                ("juiz_indeciso", IDS_JUIZ_INDECISO, "incompleta", None),
+            ):
+                estado = _estado_sintetico(g, [_candidato_sintetico(i, g.tipo) for i in ids], busca)
+                if juiz_ligado:
+                    fatias.append(FatiaDesempate(nome, g, estado, classe, id_esp, "juiz", com_juiz))
+                else:
+                    fatias.append(
+                        FatiaDesempate(
+                            nome, g, estado, "incompleta", None, "cardinalidade_2mais", com_juiz
+                        )
+                    )
+    return fatias
+
+
+def _conferir(resultados: list[Resultado]) -> list[Resultado]:
+    return [
+        r
+        for r in resultados
+        if not (
             r.categoria == "acerto"
             and r.saida["metodo_decisao"] == r.esperado_metodo
             and r.saida["tipo"] == r.esperado_tipo
         )
-        if not ok:
-            erros.append(r)
-    print(f"{len(resultados)} entradas sintéticas em {len(por_fatia)} fatias:")
-    for fatia, n in sorted(por_fatia.items()):
-        print(f"  {fatia.ljust(30)} {n:4d}")
-    _relatar_metricas(resultados, chave_grupo=lambda r: r.estado.metodo_busca)
-    _histograma_metodo_decisao(resultados)
+    ]
 
-    _secao(
-        f"Acertos exatos (classe + id + tipo + metodo_decisao): {len(resultados) - len(erros)}/{len(resultados)}"
-    )
+
+def _imprimir_erros(erros: list[Resultado]) -> None:
     for r in erros:
         print(
             f"  ERRO {r.rotulo} {r.gold.documento_id} {r.gold.citacao_id}: esperado "
             f"{r.esperado_classe}/{r.esperado_id}/{r.esperado_tipo}/{r.esperado_metodo}, "
             f"obtido {r.saida}"
         )
+
+
+def _precisao_do_juiz(resultados: list[Resultado]) -> None:
+    """Entre as saídas com `metodo_decisao="juiz"`: quantas o juiz decidiu,
+    quantas com o id certo, quantas erradas e quantas ficaram indecisas.
+    Id fora da lista já foi descartado por `decidir` e conta como indecisa
+    — é exatamente a proteção de τ."""
+    do_juiz = [r for r in resultados if r.saida["metodo_decisao"] == "juiz"]
+    decididas = [r for r in do_juiz if r.saida["id_canonico"] is not None]
+    certas = [r for r in decididas if r.saida["id_canonico"] == r.esperado_id]
+    _secao("Precisão do juiz (só saídas com metodo_decisao=juiz)")
+    print(
+        f"consultadas: {len(do_juiz)}  decididas: {len(decididas)}  indecisas: {len(do_juiz) - len(decididas)}"
+    )
+    if decididas:
+        print(
+            f"id certo: {len(certas)}  id errado: {len(decididas) - len(certas)}  "
+            f"precisão = {len(certas) / len(decididas):.3f}"
+        )
+    tau = [r for r in decididas if r.esperado_classe == "inventada"]
+    print(f"decididas sobre gold inventada (τ): {len(tau)}")
+
+
+def modo_isolado(gold: list[Gold], pasta_saida: Path, juiz_ligado: bool) -> int:
+    _secao("MODO ISOLADO — entradas sintéticas derivadas do gabarito")
+    resultados: list[Resultado] = []
+    for fatia, g, estado, classe, id_esp, metodo in _fatias_isoladas(gold):
+        saida = decidir(estado, ParametrosDecisao())
+        resultados.append(Resultado(g, fatia, estado, saida, classe, id_esp, g.tipo, metodo))
+
+    por_fatia: Counter = Counter(r.rotulo for r in resultados)
+    erros = _conferir(resultados)
+    print(f"{len(resultados)} entradas sintéticas em {len(por_fatia)} fatias:")
+    for fatia, n in sorted(por_fatia.items()):
+        print(f"  {fatia.ljust(36)} {n:4d}")
+    _relatar_metricas(resultados, chave_grupo=lambda r: r.estado.metodo_busca)
+    _histograma_metodo_decisao(resultados)
+
+    _secao(
+        f"Acertos exatos (classe + id + tipo + metodo_decisao): {len(resultados) - len(erros)}/{len(resultados)}"
+    )
+    _imprimir_erros(erros)
     _escrever_csv_erros(resultados, pasta_saida / "avalia_decisao_isolado.csv")
-    return 1 if erros else 0
+
+    # ── bloco à parte: desempates determinísticos e juiz ──
+    _secao(f"MODO ISOLADO — desempates e juiz (juiz {'falso' if juiz_ligado else 'desligado'})")
+    resultados_d: list[Resultado] = []
+    for f in _fatias_desempate(gold, juiz_ligado):
+        saida = decidir(f.estado, f.parametros, JUIZ_FALSO_ISOLADO, f.duplicatas)
+        resultados_d.append(
+            Resultado(
+                f.gold, f.nome, f.estado, saida, f.classe, f.id_esperado, f.gold.tipo, f.metodo
+            )
+        )
+    por_fatia_d: Counter = Counter(r.rotulo for r in resultados_d)
+    erros_d = _conferir(resultados_d)
+    print(f"{len(resultados_d)} entradas sintéticas em {len(por_fatia_d)} fatias:")
+    for fatia, n in sorted(por_fatia_d.items()):
+        esperado = next(r.esperado_metodo for r in resultados_d if r.rotulo == fatia)
+        print(f"  {fatia.ljust(36)} {n:4d}   esperado: {esperado}")
+    _histograma_metodo_decisao(resultados_d)
+    _precisao_do_juiz(resultados_d)
+    _secao(
+        f"Acertos exatos (classe + id + tipo + metodo_decisao): {len(resultados_d) - len(erros_d)}/{len(resultados_d)}"
+    )
+    _imprimir_erros(erros_d)
+    _escrever_csv_erros(resultados_d, pasta_saida / "avalia_decisao_isolado_desempate.csv")
+    return 1 if (erros or erros_d) else 0
 
 
 # ── modo integrado ──────────────────────────────────────────────────────────
@@ -520,6 +721,42 @@ def _carregar_catalogo(pasta_dados: Path, pasta_artifacts: Path) -> CatalogoCano
     salvar(catalogo, cache)
     print(f"catálogo construído em {time.perf_counter() - inicio:.1f}s")
     return catalogo
+
+
+def _carregar_assinaturas(pasta_dados: Path, pasta_artifacts: Path) -> DuplicatasPorAssinatura:
+    """Assinatura de conteúdo (sha1 do `texto`) por id, lida da base em modo
+    somente leitura e cacheada ao lado do catálogo. É o oráculo do
+    desempate 1a — em produção teria de vir do catálogo (pedido ao M3)."""
+    cache = pasta_artifacts / NOME_CACHE_ASSINATURAS
+    if cache.exists():
+        with open(cache, encoding="utf-8") as f:
+            return DuplicatasPorAssinatura({int(k): v for k, v in json.load(f).items()})
+    db = pasta_dados / "desafio1_bracis.db"
+    conexao = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        assinaturas = {
+            int(id_): hashlib.sha1(texto.encode("utf-8")).hexdigest()
+            for id_, texto in conexao.execute("SELECT id, texto FROM documentos")
+        }
+    finally:
+        conexao.close()
+    pasta_artifacts.mkdir(parents=True, exist_ok=True)
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump({str(k): v for k, v in assinaturas.items()}, f)
+    return DuplicatasPorAssinatura(assinaturas)
+
+
+@dataclass(frozen=True)
+class JuizOraculo:
+    """Teto do juiz no integrado: devolve o id do gabarito se ele estiver
+    entre os candidatos, senão `None`. Mede o máximo que um juiz perfeito
+    mudaria — não é um juiz de verdade."""
+
+    gold_por_trecho: dict[tuple[str, int, int], int | None]
+
+    def escolher(self, estado: EstadoCitacao, candidatos) -> int | None:
+        esperado = self.gold_por_trecho.get((estado.trecho, estado.inicio, estado.fim))
+        return esperado if esperado in {c.id for c in candidatos} else None
 
 
 def _aplicar(estado: EstadoCitacao, atualizacao: dict) -> None:
@@ -544,14 +781,39 @@ def _estado_oraculo(g: Gold) -> EstadoCitacao:
 
 
 def modo_integrado(
-    gold: list[Gold], pasta_dados: Path, pasta_artifacts: Path, pasta_saida: Path
+    gold: list[Gold],
+    pasta_dados: Path,
+    pasta_artifacts: Path,
+    pasta_saida: Path,
+    juiz_ligado: bool,
 ) -> int:
     _secao("MODO INTEGRADO — gabarito como oráculo de extração → M2 → M3 → M4")
     catalogo = _carregar_catalogo(pasta_dados, pasta_artifacts)
+    assinaturas = _carregar_assinaturas(pasta_dados, pasta_artifacts)
+    colisoes = catalogo.relatorio_colisoes()
     print(
         f"catálogo: {len(catalogo.registros)} registros, {len(catalogo.por_chave)} chaves de "
         f"jurisprudência, {len(catalogo.leis_sumulas)} leis/súmulas, "
-        f"{len(catalogo.relatorio_colisoes())} colisões"
+        f"{len(colisoes)} colisões"
+    )
+    colisoes_duplicata = sum(
+        1 for ids in colisoes.values() if len({assinaturas.assinatura(i) for i in ids}) == 1
+    )
+    grupos = Counter(assinaturas.assinaturas.values())
+    print(
+        f"colisões cujos registros são o mesmo texto: {colisoes_duplicata}/{len(colisoes)}; "
+        f"grupos de texto duplicado na base inteira: {sum(1 for n in grupos.values() if n > 1)} "
+        f"({sum(n for n in grupos.values() if n > 1)} registros)"
+    )
+
+    # A passada principal é fiel à produção: sem oráculo de duplicatas
+    # (o catálogo não expõe hash) e juiz conforme `--juiz`.
+    juiz: Juiz = JuizDesligado()
+    if juiz_ligado:
+        juiz = JuizOraculo({(g.trecho, g.inicio, g.fim): g.id_canonico for g in gold})
+    parametros = ParametrosDecisao(habilitar_juiz=juiz_ligado)
+    print(
+        f"decidir com: {parametros}, juiz={'oráculo do gabarito' if juiz_ligado else 'desligado'}"
     )
 
     resultados: list[Resultado] = []
@@ -559,7 +821,7 @@ def modo_integrado(
         estado = _estado_oraculo(g)
         _aplicar(estado, normalizar(estado))
         _aplicar(estado, resolver(estado, catalogo))
-        saida = decidir(estado, ParametrosDecisao())
+        saida = decidir(estado, parametros, juiz)
         resultados.append(
             Resultado(g, "gabarito", estado, saida, g.classificacao, g.id_canonico, g.tipo)
         )
@@ -570,9 +832,120 @@ def modo_integrado(
 
     _relatar_metricas(resultados, chave_grupo=lambda r: f"metodo_busca={r.estado.metodo_busca}")
     _histograma_metodo_decisao(resultados)
+    if juiz_ligado:
+        _precisao_do_juiz(resultados)
     _diagnosticos(resultados)
+    _diagnostico_desempate_e_juiz(resultados, gold, assinaturas)
     _escrever_csv_erros(resultados, pasta_saida / "avalia_decisao_integrado.csv")
     return 0
+
+
+def _macro_f1_de(resultados: list[Resultado], saidas: dict[str, dict]) -> Acumulador:
+    """Acumulador com as saídas substituídas por `saidas` (chave: citacao_id)."""
+    acc = Acumulador()
+    for r in resultados:
+        clone = Resultado(
+            r.gold,
+            r.rotulo,
+            r.estado,
+            saidas.get(r.gold.citacao_id, r.saida),
+            r.esperado_classe,
+            r.esperado_id,
+            r.esperado_tipo,
+        )
+        acc.acumular(clone)
+    return acc
+
+
+def _diagnostico_desempate_e_juiz(
+    resultados: list[Resultado], gold: list[Gold], assinaturas: DuplicatasPorAssinatura
+) -> None:
+    """Contrafactuais sobre os mesmos estados: o que cada alavanca do ramo
+    2+ mudaria hoje, e a projeção de impacto de um juiz perfeito."""
+    _secao("Diagnóstico — ramo 2+: desempates e juiz (contrafactuais)")
+    base = Acumulador()
+    for r in resultados:
+        base.acumular(r)
+
+    empates = [
+        r
+        for r in resultados
+        if len({c.id for c in r.estado.candidatos if not c.conflitos_duros}) >= 2
+    ]
+    print(f"citações que entram no ramo 2+ (ids limpos distintos ≥ 2): {len(empates)}")
+
+    # (a) duplicata de conteúdo, com as assinaturas da base
+    por_dup = {
+        r.gold.citacao_id: decidir(r.estado, ParametrosDecisao(), duplicatas=assinaturas)
+        for r in empates
+    }
+    n_dup = sum(1 for s in por_dup.values() if s["metodo_decisao"] == "desempate_duplicata")
+    # (b) margem de score (margem mínima 0: qualquer diferença estrita)
+    por_score = {
+        r.gold.citacao_id: decidir(
+            r.estado,
+            ParametrosDecisao(habilitar_desempate_score=True),
+            duplicatas=assinaturas,
+        )
+        for r in empates
+    }
+    n_score = sum(1 for s in por_score.values() if s["metodo_decisao"] == "desempate_score")
+    # (c) o que sobra para o juiz depois de (a) e (b)
+    restam = [
+        r
+        for r in empates
+        if por_score[r.gold.citacao_id]["metodo_decisao"] == "cardinalidade_2mais"
+    ]
+    print(f"resolvidas antes do juiz por duplicata de conteúdo: {n_dup}")
+    print(f"resolvidas antes do juiz por margem de score:       {n_score}")
+    print(f"chegariam ao juiz hoje (sobra de 1a e 1b):          {len(restam)}")
+    for r in restam:
+        ids = ";".join(str(c.id) for c in r.estado.candidatos)
+        print(
+            f"    {r.gold.citacao_id} gold={r.esperado_classe}/{r.esperado_id} ids={ids} {r.gold.trecho!r}"
+        )
+
+    # projeção: todo cardinalidade_2mais vira real com o id certo (quando o
+    # gabarito é real e o id está entre os candidatos); gold inventada em
+    # empate viraria... `incompleta` continua (juiz perfeito diz None).
+    projecao: dict[str, dict] = {}
+    n_real_recuperavel = 0
+    for r in resultados:
+        if r.saida["metodo_decisao"] != "cardinalidade_2mais":
+            continue
+        ids = {c.id for c in r.estado.candidatos if not c.conflitos_duros}
+        if r.esperado_classe == "real" and r.esperado_id in ids:
+            n_real_recuperavel += 1
+            projecao[r.gold.citacao_id] = {
+                **r.saida,
+                "classificacao": "real",
+                "id_canonico": r.esperado_id,
+                "metodo_decisao": "juiz",
+            }
+    proj = _macro_f1_de(resultados, projecao)
+    print(
+        f"projeção (juiz perfeito): {n_real_recuperavel} gold real recuperáveis em cardinalidade_2mais; "
+        f"macro-F1 {base.macro_f1():.3f} → {proj.macro_f1():.3f} "
+        f"(Δ = {proj.macro_f1() - base.macro_f1():+.3f}); τ {base.tau():.3f} → {proj.tau():.3f}"
+    )
+    # e o pior caso: juiz chuta em todo empate (id errado / real em inventada)
+    pior: dict[str, dict] = {}
+    for r in resultados:
+        if r.saida["metodo_decisao"] != "cardinalidade_2mais":
+            continue
+        ids = sorted(c.id for c in r.estado.candidatos if not c.conflitos_duros)
+        errado = next((i for i in ids if i != r.esperado_id), ids[0])
+        pior[r.gold.citacao_id] = {
+            **r.saida,
+            "classificacao": "real",
+            "id_canonico": errado,
+            "metodo_decisao": "juiz",
+        }
+    pior_acc = _macro_f1_de(resultados, pior)
+    print(
+        f"pior caso (juiz chuta errado em todo empate): macro-F1 → {pior_acc.macro_f1():.3f} "
+        f"(Δ = {pior_acc.macro_f1() - base.macro_f1():+.3f}); τ → {pior_acc.tau():.3f}"
+    )
 
 
 def _diagnosticos(resultados: list[Resultado]) -> None:
@@ -696,6 +1069,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--modo", choices=("isolado", "integrado", "ambos"), default="ambos")
     parser.add_argument(
+        "--juiz",
+        choices=("desligado", "falso"),
+        default="desligado",
+        help="`falso` liga o juiz com JuizFalso (isolado) / oráculo do gabarito (integrado); "
+        "nenhum modo carrega pesos aqui",
+    )
+    parser.add_argument(
         "--artifacts", type=Path, default=RAIZ / "artifacts", help="cache do catálogo (gitignored)"
     )
     parser.add_argument(
@@ -704,11 +1084,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     gold = ler_gabarito(args.dados)
+    juiz_ligado = args.juiz == "falso"
     codigo = 0
     if args.modo in ("isolado", "ambos"):
-        codigo |= modo_isolado(gold, args.saida)
+        codigo |= modo_isolado(gold, args.saida, juiz_ligado)
     if args.modo in ("integrado", "ambos"):
-        codigo |= modo_integrado(gold, args.dados, args.artifacts, args.saida)
+        codigo |= modo_integrado(gold, args.dados, args.artifacts, args.saida, juiz_ligado)
     return codigo
 
 

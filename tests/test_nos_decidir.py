@@ -13,13 +13,17 @@ from dataclasses import dataclass
 from hypothesis import given
 from hypothesis import strategies as st
 
+from citacoes.agentes.juiz import BackendFalso
 from citacoes.catalogo.esquema import Candidato
 from citacoes.dominio.campos import CamposIdentificador
 from citacoes.grafo.estados import Contexto, EstadoCitacao
 from citacoes.nos.decidir import (
+    DuplicatasPorAssinatura,
     JuizDesligado,
+    JuizFalso,
     JuizLLM,
     ParametrosDecisao,
+    SemDuplicatas,
     decidir,
     decidir_classe,
 )
@@ -262,16 +266,144 @@ def test_juiz_nao_e_consultado_com_um_candidato_so():
     assert saida["metodo_decisao"] == "cardinalidade_1"
 
 
-def test_juiz_llm_e_esqueleto_deterministico_sem_corpo():
-    juiz = JuizLLM(modelo=object())
-    assert juiz.temperature == 0.0
-    assert isinstance(juiz.seed, int)
-    try:
-        juiz.escolher(_estado([_candidato(1), _candidato(2)]), ())
-    except NotImplementedError:
-        pass
-    else:
-        raise AssertionError("JuizLLM deveria levantar NotImplementedError na v1")
+def test_juiz_falso_responde_pelo_conjunto_de_ids_oferecido():
+    juiz = JuizFalso({frozenset({1, 2}): 2, frozenset({3, 4}): 99})
+    parametros = ParametrosDecisao(habilitar_juiz=True)
+    assert decidir(_estado([_candidato(1), _candidato(2)]), parametros, juiz)["id_canonico"] == 2
+    # 99 não está na lista: o juiz "chutou" e decidir descarta
+    saida = decidir(_estado([_candidato(3), _candidato(4)]), parametros, juiz)
+    assert saida["classificacao"] == "incompleta"
+    # conjunto não programado cai no padrão (None)
+    saida = decidir(_estado([_candidato(5), _candidato(6)]), parametros, juiz)
+    assert saida["classificacao"] == "incompleta"
+    assert saida["metodo_decisao"] == "juiz"
+
+
+# ── desempate determinístico (antes do juiz) ───────────────────────────────
+
+
+def test_duplicata_de_conteudo_resolve_pelo_menor_id_sem_chamar_o_juiz():
+    duplicatas = DuplicatasPorAssinatura({20: "sha-a", 10: "sha-a"})
+    backend = BackendFalso(resposta='{"id_canonico": 20, "justificativa": "x"}')
+    parametros = ParametrosDecisao(habilitar_juiz=True)
+    saida = decidir(
+        _estado([_candidato(20), _candidato(10)]), parametros, JuizLLM(backend), duplicatas
+    )
+    assert saida["classificacao"] == "real"
+    assert saida["metodo_decisao"] == "desempate_duplicata"
+    assert saida["id_canonico"] == 10
+    assert backend.chamadas == []
+
+
+def test_duplicata_com_juiz_desligado_tambem_resolve():
+    duplicatas = DuplicatasPorAssinatura({1: "sha-a", 2: "sha-a"})
+    saida = decidir(_estado([_candidato(1), _candidato(2)]), duplicatas=duplicatas)
+    assert saida["classificacao"] == "real"
+    assert saida["metodo_decisao"] == "desempate_duplicata"
+    assert saida["id_canonico"] == 1
+
+
+def test_duplicata_parcial_colapsa_o_par_e_deixa_o_restante_para_o_juiz():
+    # 1 e 2 são o mesmo texto; 3 é outro documento: ainda há 2 conteúdos.
+    duplicatas = DuplicatasPorAssinatura({1: "sha-a", 2: "sha-a", 3: "sha-b"})
+    candidatos = [_candidato(1), _candidato(2), _candidato(3)]
+    saida = decidir(_estado(candidatos), duplicatas=duplicatas)
+    assert saida["metodo_decisao"] == "cardinalidade_2mais"
+    vistos: list[frozenset[int]] = []
+
+    @dataclass(frozen=True)
+    class _Espiao:
+        def escolher(self, estado, candidatos):
+            vistos.append(frozenset(c.id for c in candidatos))
+            return None
+
+    decidir(_estado(candidatos), ParametrosDecisao(habilitar_juiz=True), _Espiao(), duplicatas)
+    assert vistos == [frozenset({1, 3})]
+
+
+def test_ids_sem_assinatura_nunca_colapsam():
+    duplicatas = DuplicatasPorAssinatura({1: "sha-a"})  # 2 sem assinatura
+    saida = decidir(_estado([_candidato(1), _candidato(2)]), duplicatas=duplicatas)
+    assert saida["metodo_decisao"] == "cardinalidade_2mais"
+    assert (
+        decidir(_estado([_candidato(1), _candidato(2)]), duplicatas=SemDuplicatas())[
+            "metodo_decisao"
+        ]
+        == "cardinalidade_2mais"
+    )
+
+
+def _empate_lei():
+    return _estado(
+        [
+            _candidato(1, natureza="dispositivo", score=0.7),
+            _candidato(2, natureza="dispositivo", score=1.0),
+        ],
+        metodo_busca="lei_sumula",
+        tipo_bruto="lei",
+    )
+
+
+def test_scores_distintos_com_desempate_desligado_continua_cardinalidade_2mais():
+    saida = decidir(_empate_lei())
+    assert saida["classificacao"] == "incompleta"
+    assert saida["metodo_decisao"] == "cardinalidade_2mais"
+
+
+def test_scores_distintos_com_desempate_ligado_resolve_pelo_maior_score():
+    saida = decidir(_empate_lei(), ParametrosDecisao(habilitar_desempate_score=True))
+    assert saida["classificacao"] == "real"
+    assert saida["metodo_decisao"] == "desempate_score"
+    assert saida["id_canonico"] == 2
+    assert saida["tipo"] == "lei"
+
+
+def test_margem_abaixo_da_minima_nao_resolve_e_cai_para_o_juiz_ou_incompleta():
+    parametros = ParametrosDecisao(habilitar_desempate_score=True, margem_minima=0.5)
+    saida = decidir(_empate_lei(), parametros)  # margem 0.3 < 0.5
+    assert saida["metodo_decisao"] == "cardinalidade_2mais"
+    parametros = ParametrosDecisao(
+        habilitar_juiz=True, habilitar_desempate_score=True, margem_minima=0.5
+    )
+    saida = decidir(_empate_lei(), parametros, JuizFalso(padrao=1))
+    assert saida["metodo_decisao"] == "juiz"
+    assert saida["id_canonico"] == 1
+
+
+def test_empate_no_topo_do_score_nao_resolve():
+    candidatos = [
+        _candidato(1, score=1.0),
+        _candidato(2, score=1.0),
+        _candidato(3, score=0.5),
+    ]
+    saida = decidir(_estado(candidatos), ParametrosDecisao(habilitar_desempate_score=True))
+    assert saida["metodo_decisao"] == "cardinalidade_2mais"
+
+
+def test_score_constante_de_jurisprudencia_nunca_desempata():
+    saida = decidir(
+        _estado([_candidato(1), _candidato(2)]),
+        ParametrosDecisao(habilitar_desempate_score=True),
+    )
+    assert saida["metodo_decisao"] == "cardinalidade_2mais"
+
+
+def test_desempate_por_score_usa_o_maior_score_de_cada_id():
+    candidatos = [_candidato(1, score=0.5), _candidato(1, score=1.0), _candidato(2, score=0.7)]
+    saida = decidir(_estado(candidatos), ParametrosDecisao(habilitar_desempate_score=True))
+    assert saida["id_canonico"] == 1
+
+
+def test_duplicata_vem_antes_do_score():
+    duplicatas = DuplicatasPorAssinatura({1: "sha-a", 2: "sha-a"})
+    candidatos = [_candidato(1, score=0.7), _candidato(2, score=1.0)]
+    saida = decidir(
+        _estado(candidatos),
+        ParametrosDecisao(habilitar_desempate_score=True),
+        duplicatas=duplicatas,
+    )
+    assert saida["metodo_decisao"] == "desempate_duplicata"
+    assert saida["id_canonico"] == 1
 
 
 # ── wrapper de nó ───────────────────────────────────────────────────────────
@@ -312,6 +444,9 @@ def test_decidir_nao_abre_banco_nem_arquivo(monkeypatch):
         _estado([_candidato(1, conflitos=("uf",))]),
     ):
         assert set(decidir(estado)) == CHAVES
+        parametros = ParametrosDecisao(habilitar_desempate_score=True)
+        duplicatas = DuplicatasPorAssinatura({1: "a", 2: "a"})
+        assert set(decidir(estado, parametros, duplicatas=duplicatas)) == CHAVES
 
 
 # ── propriedades ────────────────────────────────────────────────────────────
@@ -331,9 +466,34 @@ _candidatos = st.lists(
 )
 _metodos_busca = st.sampled_from([None, "sem_busca", "catalogo", "lei_sumula"])
 _tipos_brutos = st.sampled_from(["jurisprudencia", "lei", "indefinido"])
-_parametros = st.builds(ParametrosDecisao, habilitar_juiz=st.booleans())
+_parametros = st.builds(
+    ParametrosDecisao,
+    habilitar_juiz=st.booleans(),
+    habilitar_desempate_score=st.booleans(),
+    margem_minima=st.sampled_from([0.0, 0.2, 0.5]),
+)
+
+
+def _juiz_llm_falso(resposta: str) -> JuizLLM:
+    return JuizLLM(BackendFalso(resposta))
+
+
+_respostas_llm = st.one_of(
+    st.just(""),
+    st.just("não sei"),
+    st.just('{"id_canonico": null, "justificativa": "sem sinal"}'),
+    _ids.map(lambda i: f'{{"id_canonico": {i}, "justificativa": "x"}}'),
+    _ids.map(lambda i: f'```json\n{{"id_canonico": {i}}}\n```'),
+)
 _juizes = st.one_of(
-    st.just(JuizDesligado()), st.builds(_JuizFixo, resposta=st.one_of(st.none(), _ids))
+    st.just(JuizDesligado()),
+    st.builds(_JuizFixo, resposta=st.one_of(st.none(), _ids)),
+    st.builds(JuizFalso, padrao=st.one_of(st.none(), _ids)),
+    _respostas_llm.map(_juiz_llm_falso),
+)
+_duplicatas = st.builds(
+    DuplicatasPorAssinatura,
+    assinaturas=st.dictionaries(_ids, st.sampled_from(["a", "b"]), max_size=4),
 )
 
 
@@ -343,11 +503,14 @@ _juizes = st.one_of(
     tipo=_tipos_brutos,
     parametros=_parametros,
     juiz=_juizes,
+    duplicatas=_duplicatas,
 )
 def test_propriedade_real_se_e_somente_se_id_canonico_preenchido(
-    candidatos, metodo, tipo, parametros, juiz
+    candidatos, metodo, tipo, parametros, juiz, duplicatas
 ):
-    saida = decidir(_estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz)
+    saida = decidir(
+        _estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz, duplicatas
+    )
     assert (saida["classificacao"] == "real") == (saida["id_canonico"] is not None)
 
 
@@ -357,14 +520,52 @@ def test_propriedade_real_se_e_somente_se_id_canonico_preenchido(
     tipo=_tipos_brutos,
     parametros=_parametros,
     juiz=_juizes,
+    duplicatas=_duplicatas,
 )
 def test_propriedade_id_canonico_e_int_vindo_de_candidato_id(
-    candidatos, metodo, tipo, parametros, juiz
+    candidatos, metodo, tipo, parametros, juiz, duplicatas
 ):
-    saida = decidir(_estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz)
+    # Vale em todos os caminhos, inclusive juiz e desempates: `real` ⟹ id
+    # é de um candidato limpo da lista.
+    saida = decidir(
+        _estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz, duplicatas
+    )
     if saida["id_canonico"] is not None:
         assert type(saida["id_canonico"]) is int
-        assert saida["id_canonico"] in {c.id for c in candidatos}
+        assert saida["id_canonico"] in {c.id for c in candidatos if not c.conflitos_duros}
+
+
+@given(
+    metodo=_metodos_busca,
+    tipo=_tipos_brutos,
+    parametros=_parametros,
+    juiz=_juizes,
+    duplicatas=_duplicatas,
+)
+def test_propriedade_juiz_nunca_converte_zero_candidatos_em_real(
+    metodo, tipo, parametros, juiz, duplicatas
+):
+    saida = decidir(_estado([], metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz, duplicatas)
+    assert saida["classificacao"] != "real"
+    assert saida["metodo_decisao"] in {"sem_identificador", "cardinalidade_0"}
+
+
+@given(
+    candidatos=_candidatos,
+    metodo=_metodos_busca,
+    tipo=_tipos_brutos,
+    duplicatas=_duplicatas,
+)
+def test_propriedade_juiz_desligado_nunca_chama_o_backend(candidatos, metodo, tipo, duplicatas):
+    backend = BackendFalso('{"id_canonico": 1}')
+    parametros = ParametrosDecisao(habilitar_juiz=False, habilitar_desempate_score=True)
+    decidir(
+        _estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo),
+        parametros,
+        JuizLLM(backend),
+        duplicatas,
+    )
+    assert backend.chamadas == []
 
 
 @given(
@@ -373,11 +574,14 @@ def test_propriedade_id_canonico_e_int_vindo_de_candidato_id(
     tipo=_tipos_brutos,
     parametros=_parametros,
     juiz=_juizes,
+    duplicatas=_duplicatas,
 )
-def test_propriedade_funcao_pura_nao_muta_o_estado(candidatos, metodo, tipo, parametros, juiz):
+def test_propriedade_funcao_pura_nao_muta_o_estado(
+    candidatos, metodo, tipo, parametros, juiz, duplicatas
+):
     estado = _estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo)
     antes = copy.deepcopy(estado)
-    decidir(estado, parametros, juiz)
+    decidir(estado, parametros, juiz, duplicatas)
     assert estado == antes
 
 
@@ -387,11 +591,14 @@ def test_propriedade_funcao_pura_nao_muta_o_estado(candidatos, metodo, tipo, par
     tipo=_tipos_brutos,
     parametros=_parametros,
     juiz=_juizes,
+    duplicatas=_duplicatas,
 )
 def test_propriedade_saida_tem_exatamente_as_quatro_chaves(
-    candidatos, metodo, tipo, parametros, juiz
+    candidatos, metodo, tipo, parametros, juiz, duplicatas
 ):
-    saida = decidir(_estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz)
+    saida = decidir(
+        _estado(candidatos, metodo_busca=metodo, tipo_bruto=tipo), parametros, juiz, duplicatas
+    )
     assert set(saida) == CHAVES
     assert saida["classificacao"] in {"real", "inventada", "incompleta"}
     assert saida["tipo"] in {"jurisprudencia", "lei"}

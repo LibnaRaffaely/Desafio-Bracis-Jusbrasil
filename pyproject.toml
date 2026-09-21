@@ -20,6 +20,13 @@ llm = [
     "langchain-community>=0.4",
     "llama-cpp-python>=0.3",
 ]
+# Agente-Juiz com pesos abertos via `agentes/juiz.py:BackendTransformers`
+# (só quem tiver a GPU do envelope instala: `uv sync --extra juiz`). O
+# pipeline determinístico e os testes do juiz (BackendFalso) não dependem disto.
+juiz = [
+    "transformers>=4.56",
+    "torch>=2.4",
+]
 
 [dependency-groups]
 dev = [
