@@ -9,8 +9,9 @@ devolve só o que mudou (docs/arquitetura.md).
 
 from __future__ import annotations
 
+import operator
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Annotated, Literal
 
 from citacoes.catalogo.esquema import Candidato, CatalogoCanonico
 from citacoes.dominio.campos import CamposIdentificador
