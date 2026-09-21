@@ -8,6 +8,7 @@ from citacoes.nos.decidir import (
     decidir_classe,
 )
 from citacoes.nos.normalizar import normalizar
+from citacoes.nos.reunir_e_formatar import reunir_e_formatar
 
 __all__ = [
     "Juiz",
@@ -19,4 +20,5 @@ __all__ = [
     "decidir_classe",
     "normalizar",
     "resolver",
+    "reunir_e_formatar"
 ]
