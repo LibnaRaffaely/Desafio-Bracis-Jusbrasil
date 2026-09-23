@@ -49,11 +49,26 @@ _SUMULA = re.compile(
     r"s[uú]mula\s+(?P<vinculante>vinculante\s+)?n?[º°o]?\.?\s*(?P<num>[\dOolISs]+)",
     re.IGNORECASE,
 )
-_ARTIGO = re.compile(r"\bart(?:igo)?s?\.?\s*(?P<num>[\dOolISs]+)\s*[º°o]?", re.IGNORECASE)
+# Número do artigo: dígitos agrupados de 3 em 3 por ponto de milhar
+# ("1.134") OU uma cadeia sem separador ("927") — nessa ordem, senão o milhar
+# casa só o primeiro grupo ("1.134" -> "1", perdendo os outros dígitos).
+_ARTIGO = re.compile(
+    r"\bart(?:igo)?s?\.?\s*(?P<num>[\dOolISs]{1,3}(?:\.[\dOolISs]{3})+|[\dOolISs]+)\s*[º°o]?",
+    re.IGNORECASE,
+)
 _PARAGRAFO_UNICO = re.compile(r"par[aá]grafo\s+[uú]nico|§\s*[uú]nico", re.IGNORECASE)
 _PARAGRAFO = re.compile(r"(?:§|par[aá]grafo)\s*(?P<num>[\dOolISs]+)\s*[º°o]?", re.IGNORECASE)
 _INCISO = re.compile(r"\binc(?:iso)?\.?\s*(?P<num>[IVXLCM]+)\b", re.IGNORECASE)
 _ALINEA = re.compile(r"\bal[ií]nea\.?\s*[\"'“]?(?P<letra>[a-zA-Z])[\"'”]?\b")
+# Uma cadeia numérica (dígitos ligados por "." ou "-", sem espaço) — mesma
+# ideia de dominio.chave._CADEIA_NUMERICA, mas já sobre o texto pós-OCR
+# (só dígitos e pontuação interna, letra confundível já virou dígito).
+_CADEIA_NUMERO = re.compile(r"\d(?:[\d.\-]*\d)?")
+# Acima disto, `trecho` é cabeçalho de catálogo, não span de citação — ver
+# extrair_campos(). O maior trecho do goldenset tem 84 caracteres; o menor
+# cabeçalho real (extrair_cabecalho sobre desafio1_bracis.db) tem 172 —
+# folga de sobra dos dois lados para não confundir um com o outro.
+_LIMITE_TRECHO_CURTO = 120
 
 
 def _so_digitos(bruto: str) -> str | None:
@@ -126,13 +141,30 @@ def extrair_campos(trecho: str, tipo_bruto: str) -> tuple[CamposIdentificador, b
         return campos, ocr_corrigido
 
     # jurisprudência (ou tipo ainda indefinido): o identificador é o número
-    # do processo — todos os dígitos do trecho, já com OCR corrigido. Exige
-    # um mínimo de 5 dígitos (o menor número real visto no goldenset, "Rcl
-    # 66.516" — Analise_Exploratoria.docx §c) para não tratar um ano solto
-    # ("...proferido em 2024...", típico de menção vaga) como se fosse um
-    # número de processo buscável.
-    digitos_brutos = "".join(c for c in corrigido if c.isdigit())
-    numero = digitos_brutos if len(digitos_brutos) >= 5 else None
+    # do processo. Um trecho curto (span do Módulo 1, no máximo ~84
+    # caracteres no goldenset) já veio recortado para conter só o próprio
+    # identificador — concatena todos os dígitos, o que também absorve sem
+    # esforço o ruído de Nível 2 (espaço solto/quebra de linha dentro do
+    # número, dominio/ruido.py). Um trecho longo é o cabeçalho de um
+    # registro do catálogo (dominio/cabecalho.py) — aí não dá para
+    # concatenar tudo: mistura data de julgamento, número de turma e o
+    # número de outro processo citado ali dentro (ex.: "Reclamação" contra
+    # decisão de origem, que traz o próprio número CNJ do processo de
+    # origem) com o número do próprio registro. Usa em vez disso a primeira
+    # cadeia numérica (dígitos ligados por "." ou "-", já com OCR corrigido)
+    # com um mínimo de 5 dígitos (o menor número real visto no goldenset,
+    # "Rcl 66.516" — Analise_Exploratoria.docx §c) — a primeira cadeia é
+    # sempre a do próprio registro, nunca a de algo citado depois dela.
+    if len(corrigido) <= _LIMITE_TRECHO_CURTO:
+        digitos_brutos = "".join(c for c in corrigido if c.isdigit())
+        numero = digitos_brutos if len(digitos_brutos) >= 5 else None
+    else:
+        numero = None
+        for m_num in _CADEIA_NUMERO.finditer(corrigido):
+            digitos = "".join(c for c in m_num.group(0) if c.isdigit())
+            if len(digitos) >= 5:
+                numero = digitos
+                break
     campos = CamposIdentificador(
         numero_normalizado=numero,
         classe=classe_principal,

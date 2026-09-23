@@ -29,6 +29,12 @@ class RegistroCatalogo:
     ano: int | None
     relator: str | None
     campos: CamposIdentificador
+    # sha1(texto) — permite ao Módulo 4 diferenciar colisão de chave por
+    # duplicata real (mesmo texto) de colisão por metadados iguais e texto
+    # diferente (RELATORIO_MODULO4.md §8: das 14 colisões do catálogo, 9 são
+    # duplicata e 5 não são). `None` só em registros construídos à mão sem
+    # o texto (testes) — nunca em registro vindo de `construir_registro`.
+    hash_texto: str | None = None
 
 
 @dataclass(frozen=True)

@@ -38,7 +38,7 @@ CLASSES_PROCESSUAIS: dict[str, tuple[str, ...]] = {
 # recurso-base, mas mantemos aqui só a lista de nomes reconhecidos — a
 # decisão de qual é "a" classe principal fica em `chave.classes_processuais`.
 DIPLOMAS: dict[str, tuple[str, ...]] = {
-    "CF": ("CF", "CRFB", "Constituição Federal"),
+    "CF": ("CF", "CRFB", "Constituição Federal", "Constituição da República"),
     "CPC": ("CPC", "Código de Processo Civil"),
     "CC": ("CC", "Código Civil"),
     "CP": ("CP", "Código Penal"),
@@ -47,6 +47,24 @@ DIPLOMAS: dict[str, tuple[str, ...]] = {
     "CDC": ("CDC", "Código de Defesa do Consumidor"),
     "CTN": ("CTN", "Código Tributário Nacional"),
     "ECA": ("ECA", "Estatuto da Criança e do Adolescente"),
+    # "Código Penal Militar" tem 3 tokens contra os 2 de "Código Penal" —
+    # o casador de n-gramas tenta o maior n-grama primeiro (chave.py,
+    # _casar_ngramas), então a frase completa vence "CP" na mesma posição;
+    # sem esta entrada, "art. 290 do Código Penal Militar" seria lido como
+    # CP (Analise/RELATORIO_MODULO4.md §6.7).
+    "CPM": ("CPM", "Código Penal Militar"),
+    # Sem a sigla curta "CE" (colide demais com a UF Ceará) — só a forma por
+    # extenso aparece nas citações do goldenset.
+    "CE": ("Código Eleitoral",),
+    "LC64": (
+        "LC 64/1990",
+        "LC 64/90",
+        "Lei Complementar 64/1990",
+        "Lei Complementar nº 64/1990",
+        "Lei Complementar n° 64/1990",
+        "Lei das Inelegibilidades",
+        "Lei de Inelegibilidades",
+    ),
 }
 
 # Tribunais confirmados na coluna `tribunal` de desafio1_bracis.db
