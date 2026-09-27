@@ -17,11 +17,16 @@ from citacoes.catalogo.esquema import Candidato, CatalogoCanonico
 from citacoes.dominio.campos import CamposIdentificador
 
 TipoBruto = Literal["jurisprudencia", "lei", "indefinido"]
-OrigemSpan = Literal["regex_camada1", "heuristica_camada2", "agente_extrator_llm"]
+OrigemSpan = Literal["regex_camada1", "heuristica_camada2", "agente_extrator_llm", "gabarito"]
 MetodoBusca = Literal["catalogo", "lei_sumula", "sem_busca"]
 
 
+@dataclass
+class EntradaDocumento:
+    """Entrada do grafo do documento: `ler_documento` recebe um caminho, que
+    não é campo de `EstadoDocumento` (docs/contratos.md)."""
 
+    caminho: str = ""
 
 
 @dataclass
@@ -31,6 +36,7 @@ class EstadoDocumento:
     spans: list[EstadoCitacao] = field(default_factory=list)
     citacoes: Annotated[list[EstadoCitacao], operator.add] = field(default_factory=list)
     saida: dict | None = None
+
 
 @dataclass
 class EstadoCitacao:
@@ -46,6 +52,9 @@ class EstadoCitacao:
     ocr_corrigido: bool = False
     candidatos: list[Candidato] = field(default_factory=list)
     metodo_busca: MetodoBusca | None = None
+    # Hoje o juiz roda dentro de `decidir` (nos/decidir.py) e não escreve
+    # este campo; fica reservado para o log do `agente_juiz`.
+    escolha_juiz: object | None = None
     classificacao: str | None = None
     id_canonico: int | None = None
     tipo: str | None = None
