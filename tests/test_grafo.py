@@ -260,7 +260,7 @@ def test_validar_exige_todo_documento_na_submissao(tmp_path):
 DADOS = Path(os.environ.get("CITACOES_DADOS", "data"))
 _TEM_DADOS = all(
     (DADOS / nome).exists()
-    for nome in ("txt", "desafio1_bracis.db", "goldenset.csv", "json_to_submission.py")
+    for nome in ("txt", "desafio1_bracis.db", "goldenset_offsets.csv", "json_to_submission.py")
 )
 com_dados = pytest.mark.skipif(
     not _TEM_DADOS, reason="defina CITACOES_DADOS com os dados do desafio"
@@ -297,7 +297,7 @@ def test_determinismo_submissao_byte_a_byte(tmp_path, artifacts):
 
 @com_dados
 def test_e2e_com_avaliacao(tmp_path, artifacts, capsys):
-    _rodar(tmp_path, artifacts, "--avaliar", "--gabarito", str(DADOS / "goldenset.csv"))
+    _rodar(tmp_path, artifacts, "--avaliar", "--gabarito", str(DADOS / "goldenset_offsets.csv"))
     scores = json.loads((tmp_path / "scores.json").read_text(encoding="utf-8"))
     with capsys.disabled():
         print(f"\n[e2e] final={scores['final']:.4f} niveis={scores['niveis']}")

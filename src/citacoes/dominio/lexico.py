@@ -12,25 +12,45 @@ nos 195 trechos do goldenset).
 from __future__ import annotations
 
 CLASSES_PROCESSUAIS: dict[str, tuple[str, ...]] = {
-    "REsp": ("REsp", "R.Esp.", "R. Esp.", "Recurso Especial"),
-    "AgRg": ("AgRg", "Ag.Rg.", "Ag Rg", "Agravo Regimental"),
-    "AgInt": ("AgInt", "Ag.Int.", "Ag Int", "Agravo Interno"),
+    "REsp": ("REsp", "R.Esp.", "R. Esp.", "Rec. Esp.", "Recurso Especial"),
+    # TSE: "REspe", "Recurso Especial Eleitoral". O casador de n-gramas tenta
+    # a frase mais longa primeiro, então "Recurso Especial Eleitoral" não vira REsp.
+    "REspe": ("REspe", "RESPE", "Recurso Especial Eleitoral"),
+    "AgRg": (
+        "AgRg",
+        "Ag.Rg.",
+        "Ag Rg",
+        "AgR",
+        "AG.REG.",
+        "Ag.Reg.",
+        "Agravo Regimental",
+    ),
+    "AgInt": ("AgInt", "Ag.Int.", "Ag. Int.", "Ag Int", "Agravo Interno"),
     "AREsp": (
         "AREsp",
+        "A.REsp",
+        "AgREsp",
         "Ag.REsp",
         "Ag. em REsp",
         "Agravo em Recurso Especial",
     ),
+    "AI": ("AI", "Agravo de Instrumento"),
     "Rcl": ("Rcl", "Recl.", "Reclamação"),
-    "EDcl": ("EDcl", "ED", "Emb.Decl.", "Embargos de Declaração"),
+    "EDcl": ("EDcl", "ED", "EDs", "Emb.Decl.", "Embargos de Declaração"),
+    "EREsp": ("EREsp", "Embargos de Divergência"),
     "RR": ("RR", "Recurso de Revista"),
     "ARR": ("ARR", "Agravo em Recurso de Revista"),
     "RHC": ("RHC", "Recurso em Habeas Corpus"),
-    "APL": ("APL", "Ap.", "Apelação", "Apelação Cível"),
+    "RMS": ("RMS", "Recurso em Mandado de Segurança"),
+    "APL": ("APL", "Ap.", "Apelação", "Apelação Cível", "Apelação Criminal"),
     "RSE": ("RSE", "Recurso em Sentido Estrito"),
     "RE": ("RE", "Recurso Extraordinário"),
-    "HC": ("HC", "Habeas Corpus"),
+    "HC": ("HC", "H.C.", "Habeas Corpus"),
     "MS": ("MS", "Mandado de Segurança"),
+    "SLS": ("SLS", "Suspensão de Liminar e de Sentença"),
+    "SS": ("Suspensão de Segurança",),
+    "AR": ("AR", "Ação Rescisória"),
+    "Rp": ("R-Rp", "Rp", "Representação"),
 }
 
 # Ordem de prioridade quando 2+ classes casam no mesmo trecho (ex.: "EDcl no
@@ -38,7 +58,7 @@ CLASSES_PROCESSUAIS: dict[str, tuple[str, ...]] = {
 # recurso-base, mas mantemos aqui só a lista de nomes reconhecidos — a
 # decisão de qual é "a" classe principal fica em `chave.classes_processuais`.
 DIPLOMAS: dict[str, tuple[str, ...]] = {
-    "CF": ("CF", "CRFB", "Constituição Federal", "Constituição da República"),
+    "CF": ("CF", "CRFB", "Constituição Federal", "Constituição da República", "Constituição"),
     "CPC": ("CPC", "Código de Processo Civil"),
     "CC": ("CC", "Código Civil"),
     "CP": ("CP", "Código Penal"),

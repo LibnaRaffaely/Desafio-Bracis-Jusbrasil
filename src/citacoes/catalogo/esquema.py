@@ -35,6 +35,14 @@ class RegistroCatalogo:
     # duplicata e 5 não são). `None` só em registros construídos à mão sem
     # o texto (testes) — nunca em registro vindo de `construir_registro`.
     hash_texto: str | None = None
+    # Outros números que identificam o mesmo acórdão (ex.: TSE "RECURSO
+    # ORDINÁRIO Nº 1.662 (47142-16.2008.6.00.0000)"). Entram no índice
+    # `por_chave` ao lado de `campos.numero_normalizado`.
+    numeros_alternativos: tuple[str, ...] = ()
+
+    def chaves(self) -> tuple[str, ...]:
+        principal = (self.campos.numero_normalizado,) if self.campos.numero_normalizado else ()
+        return tuple(dict.fromkeys(principal + self.numeros_alternativos))
 
 
 @dataclass(frozen=True)
@@ -47,6 +55,9 @@ class Candidato:
     score: float
     conflitos_duros: tuple[str, ...] = ()
     divergencias_brandas: tuple[str, ...] = ()
+    # Cadeia de classes do cabeçalho do registro ("AgInt", "REsp"): o
+    # Módulo 4 usa para desempatar registros com o mesmo número.
+    classes_compostas: tuple[str, ...] = ()
 
 
 def _score_lei_sumula(consulta: CamposIdentificador, registro: CamposIdentificador) -> float:
@@ -57,12 +68,21 @@ def _score_lei_sumula(consulta: CamposIdentificador, registro: CamposIdentificad
     if consulta.sumula is not None:
         if registro.sumula != consulta.sumula:
             return 0.0
+        # O número da súmula só identifica dentro de um tribunal: "Súmula 83
+        # do STJ" não é a "Súmula 83 do TSE". Casar os dois marcaria uma
+        # súmula inventada como real, o erro mais caro da métrica.
+        if consulta.tribunal and registro.tribunal and consulta.tribunal != registro.tribunal:
+            return 0.0
         return 0.5 if consulta.vinculante != registro.vinculante else 1.0
 
     if consulta.artigo is not None:
         if registro.artigo != consulta.artigo:
             return 0.0
-        if consulta.diploma and registro.diploma and consulta.diploma != registro.diploma:
+        # Sem diploma reconhecido dos dois lados, o número do artigo sozinho
+        # não identifica a lei: "art. 172 da Lei nº 9.504/1997" (lei fora da
+        # base) casaria com o art. 1º da LC 64/1990 depois de um ruído, e uma
+        # citação inventada viraria real.
+        if not consulta.diploma or not registro.diploma or consulta.diploma != registro.diploma:
             return 0.0
         score = 1.0
         if consulta.paragrafo and registro.paragrafo and consulta.paragrafo != registro.paragrafo:

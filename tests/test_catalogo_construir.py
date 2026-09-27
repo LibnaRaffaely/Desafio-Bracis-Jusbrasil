@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from src.citacoes.catalogo.construir import carregar, construir_catalogo, salvar
-from src.citacoes.catalogo.esquema import CatalogoCanonico, RegistroCatalogo
+from citacoes.catalogo.construir import carregar, construir_catalogo, salvar
+from citacoes.catalogo.esquema import CatalogoCanonico, RegistroCatalogo
 
 
 def test_construir_catalogo_indexa_jurisprudencia_por_chave(conexao_documentos):

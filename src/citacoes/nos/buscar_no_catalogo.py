@@ -41,6 +41,7 @@ def _para_candidato(
         score=score,
         conflitos_duros=tuple(duros),
         divergencias_brandas=tuple(brandos),
+        classes_compostas=registro.campos.classes_compostas,
     )
 
 

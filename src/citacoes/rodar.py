@@ -5,7 +5,7 @@ grafo em lote, grava um JSON 1.2 por documento, chama os scripts oficiais
 docs/contratos.md antes de sair.
 
     python -m citacoes.rodar --txt data/txt --saida out/ \\
-        [--juiz --modelo CAMINHO] [--avaliar] [--gabarito data/goldenset.csv]
+        [--juiz --modelo CAMINHO] [--avaliar] [--gabarito data/goldenset_offsets.csv]
 """
 
 from __future__ import annotations
@@ -64,8 +64,15 @@ def carregar_catalogo(pasta_artifacts: Path, db: Path, construir: bool) -> Catal
 
 
 def carregar_tabela_confianca(pasta_params: Path) -> dict | None:
+    """Tabela do Módulo 5 (`nos/calibrar.py`). Sem ela a confiança sai `-`
+    e a submissão perde o bônus de calibração inteiro."""
     caminho = pasta_params / NOME_TABELA_CONFIANCA
     if not caminho.exists():
+        print(
+            f"AVISO: {caminho} não existe; confiança vai como '-' e o bônus de Brier fica 0. "
+            "Gere a tabela com scripts/ajustar_confianca.py (make calibrar).",
+            file=sys.stderr,
+        )
         return None
     return json.loads(caminho.read_text(encoding="utf-8"))
 
@@ -212,7 +219,7 @@ def _importar_script(caminho: Path, nome: str) -> ModuleType:
 
 
 def solucao_do_gabarito(gabarito: Path) -> pd.DataFrame:
-    """`goldenset.csv` (uma linha por citação) -> formato `solution.csv` do
+    """`goldenset_offsets.csv` (uma linha por citação) -> formato `solution.csv` do
     `kaggle_metric.py` (uma linha por documento: `inicio,fim,classe,doc_ids`)."""
     gold = pd.read_csv(gabarito, dtype=str, keep_default_na=False)
     gold = gold.assign(_inicio=gold["inicio"].astype(int)).sort_values(["documento_id", "_inicio"])
@@ -308,12 +315,21 @@ def _argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     p.add_argument("--revisao", help="commit fixo dos pesos (obrigatório para id do HF)")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--avaliar", action="store_true")
-    p.add_argument("--gabarito", type=Path, default=Path("data/goldenset.csv"))
+    p.add_argument("--gabarito", type=Path, default=Path("data/goldenset_offsets.csv"))
     p.add_argument("--baseline", type=Path, default=Path("baseline/scores.json"))
     return p.parse_args(argv)
 
 
+def _saida_tolerante() -> None:
+    """No Windows, com a saída redirecionada, o console usa cp1252 e o `τ`
+    do relatório derrubava a execução depois da submissão já gravada."""
+    for fluxo in (sys.stdout, sys.stderr):
+        if hasattr(fluxo, "reconfigure"):
+            fluxo.reconfigure(errors="replace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _saida_tolerante()
     args = _argumentos(argv)
     for flag, ligada in (("--extrator-llm", args.extrator_llm), ("--parser-llm", args.parser_llm)):
         if ligada:

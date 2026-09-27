@@ -1,0 +1,27 @@
+{
+  "final": 1.0998448158356686,
+  "niveis": {
+    "1": {
+      "score": 1.099926291141414,
+      "macro_f1": 1.0,
+      "tau": 0.0,
+      "bonus": 0.09992629114141414,
+      "f1_por_classe": {
+        "real": 1.0,
+        "inventada": 1.0,
+        "incompleta": 1.0
+      }
+    },
+    "2": {
+      "score": 1.0998040781827958,
+      "macro_f1": 1.0,
+      "tau": 0.0,
+      "bonus": 0.0998040781827957,
+      "f1_por_classe": {
+        "real": 1.0,
+        "inventada": 1.0,
+        "incompleta": 1.0
+      }
+    }
+  }
+}

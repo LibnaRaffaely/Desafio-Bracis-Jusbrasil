@@ -17,13 +17,15 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 
+# Versão dos dados de 2026-09-27 (goldenset_offsets.csv e a base de 1014
+# registros). A versão anterior tinha 225 citações e 1016 registros.
 ESPERADO = {
     "documentos": 26,
-    "citacoes": 225,
-    "registros_base": 1016,
+    "citacoes": 192,
+    "registros_base": 1014,
     "nivel_classe": {
-        1: {"real": 52, "inventada": 32, "incompleta": 32},
-        2: {"real": 44, "inventada": 32, "incompleta": 33},
+        1: {"real": 52, "inventada": 32, "incompleta": 15},
+        2: {"real": 44, "inventada": 32, "incompleta": 17},
     },
 }
 
@@ -46,7 +48,7 @@ def main(pasta: Path) -> int:
     criticos: list[str] = []
     txt_dir = pasta / "txt"
     db = pasta / "desafio1_bracis.db"
-    gold_csv = pasta / "goldenset.csv"
+    gold_csv = pasta / "goldenset_offsets.csv"
     sample = pasta / "sample_submission.csv"
 
     secao("Arquivos")
@@ -80,7 +82,7 @@ def main(pasta: Path) -> int:
 
     if gold_csv.exists():
         secao("Gabarito")
-        with open(gold_csv, encoding="utf-8", newline="") as f:
+        with open(gold_csv, encoding="utf-8-sig", newline="") as f:
             gold = list(csv.DictReader(f))
         print(f"{len(gold)} citações (esperado {ESPERADO['citacoes']})")
         cont = Counter((int(r["nivel"]), r["classificacao"]) for r in gold)

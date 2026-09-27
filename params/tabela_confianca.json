@@ -1,0 +1,63 @@
+{
+  "versao": 1,
+  "chave": "metodo_decisao|metodo_busca",
+  "priori": {
+    "alfa": 1.0,
+    "beta": 1.0
+  },
+  "faixas": {
+    "cardinalidade_0|catalogo": {
+      "confianca": 0.9778,
+      "acertos": 43,
+      "total": 43
+    },
+    "cardinalidade_0|lei_sumula": {
+      "confianca": 0.9565,
+      "acertos": 21,
+      "total": 21
+    },
+    "cardinalidade_1|catalogo": {
+      "confianca": 0.9872,
+      "acertos": 76,
+      "total": 76
+    },
+    "cardinalidade_1|lei_sumula": {
+      "confianca": 0.9524,
+      "acertos": 19,
+      "total": 19
+    },
+    "desempate_classe|catalogo": {
+      "confianca": 0.6667,
+      "acertos": 1,
+      "total": 1
+    },
+    "sem_identificador|-": {
+      "confianca": 0.9706,
+      "acertos": 32,
+      "total": 32
+    }
+  },
+  "por_metodo_decisao": {
+    "cardinalidade_0": {
+      "confianca": 0.9848,
+      "acertos": 64,
+      "total": 64
+    },
+    "cardinalidade_1": {
+      "confianca": 0.9897,
+      "acertos": 95,
+      "total": 95
+    },
+    "desempate_classe": {
+      "confianca": 0.6667,
+      "acertos": 1,
+      "total": 1
+    },
+    "sem_identificador": {
+      "confianca": 0.9706,
+      "acertos": 32,
+      "total": 32
+    }
+  },
+  "padrao": 0.9948
+}

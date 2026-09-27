@@ -114,7 +114,7 @@ def _desescapar(trecho: str) -> str:
 
 
 def ler_gabarito(pasta: Path) -> list[Gold]:
-    """Lê `goldenset.csv`; quando o .txt existe, o trecho vem de
+    """Lê `goldenset_offsets.csv`; quando o .txt existe, o trecho vem de
     `texto[inicio:fim]` (cópia literal, invariante de docs/contratos.md)."""
     textos: dict[str, str] = {}
     pasta_txt = pasta / "txt"
@@ -123,7 +123,7 @@ def ler_gabarito(pasta: Path) -> list[Gold]:
             with open(arquivo, encoding="utf-8", newline="") as f:
                 textos[arquivo.stem] = f.read()
     linhas: list[Gold] = []
-    with open(pasta / "goldenset.csv", encoding="utf-8", newline="") as f:
+    with open(pasta / "goldenset_offsets.csv", encoding="utf-8", newline="") as f:
         for r in csv.DictReader(f):
             inicio, fim = int(r["inicio"]), int(r["fim"])
             texto = textos.get(r["documento_id"])
@@ -1065,7 +1065,7 @@ def main(argv: list[str] | None = None) -> int:
         "--dados",
         type=Path,
         required=True,
-        help="pasta com goldenset.csv, txt/ e desafio1_bracis.db",
+        help="pasta com goldenset_offsets.csv, txt/ e desafio1_bracis.db",
     )
     parser.add_argument("--modo", choices=("isolado", "integrado", "ambos"), default="ambos")
     parser.add_argument(

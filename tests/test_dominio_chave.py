@@ -159,3 +159,39 @@ def test_trocar_um_digito_nunca_leva_a_mesma_chave(numero: str, posicao: int):
     original, _ = extrair_digitos(numero)
     trocado, _ = extrair_digitos(numero_trocado)
     assert original != trocado
+
+
+# ── correções de 2026-09-27 ─────────────────────────────────────────────────
+
+
+def test_sigla_do_tribunal_nao_vira_digito():
+    # "TST" tem "T", que não se confunde com dígito: é sigla, não número.
+    digitos, _ = extrair_digitos("TST-ED-E-ED-RR-3400-05.2011.5.21.0009")
+    assert digitos == "34000520115210009"
+
+
+def test_letras_g_do_nivel_2_viram_digito():
+    assert extrair_digitos("6G.838")[0] == "66838"
+    assert extrair_digitos("1.45g.779")[0] == "1459779"
+
+
+def test_vizinho_depois_de_linha_em_branco_nao_conta():
+    assert extrair_digitos("7001184-1520197000000.\n\nI ")[0] == "70011841520197000000"
+
+
+def test_artigo_antes_de_numero_nao_vira_zero():
+    assert extrair_digitos("ignorar o RR-1835-06.2010.5.15.0042")[0] == "18350620105150042"
+
+
+def test_diploma_com_ruido_de_letra():
+    assert diploma_legal("artigo 7º, XXIX, da Constituição Fedcral") == "CF"
+    assert diploma_legal("art. 10 do Codigo Penal Mi1itar") == "CPM"
+    assert diploma_legal("art. 172 da Lei nº 9.504/1997") is None
+
+
+def test_classe_colada_pelo_ocr():
+    assert classes_processuais("AgInt nosEMBARGOS DE DIVERGÊNCIA EM RESP") == (
+        "AgInt",
+        "EREsp",
+        "REsp",
+    )

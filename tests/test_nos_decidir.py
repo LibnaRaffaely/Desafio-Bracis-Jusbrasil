@@ -602,3 +602,38 @@ def test_propriedade_saida_tem_exatamente_as_quatro_chaves(
     assert set(saida) == CHAVES
     assert saida["classificacao"] in {"real", "inventada", "incompleta"}
     assert saida["tipo"] in {"jurisprudencia", "lei"}
+
+
+# ── desempate pela cadeia de classes (1c) ───────────────────────────────────
+
+
+def _candidato_com_classes(id_: int, classes: tuple[str, ...]) -> Candidato:
+    return Candidato(
+        id=id_, tribunal="STJ", natureza="acordao", score=1.0, classes_compostas=classes
+    )
+
+
+def _estado_com_classes(candidatos: list[Candidato], classes: tuple[str, ...]) -> EstadoCitacao:
+    estado = _estado(candidatos)
+    estado.campos = CamposIdentificador(classes_compostas=classes)
+    return estado
+
+
+def test_desempate_classe_escolhe_unico_com_mesma_cadeia():
+    candidatos = [
+        _candidato_com_classes(1, ("AgInt", "REsp")),
+        _candidato_com_classes(2, ("AgInt", "EREsp", "REsp")),
+    ]
+    saida = decidir(_estado_com_classes(candidatos, ("AgInt", "REsp")))
+    assert (saida["classificacao"], saida["id_canonico"], saida["metodo_decisao"]) == (
+        "real",
+        1,
+        "desempate_classe",
+    )
+
+
+def test_desempate_classe_nao_decide_com_dois_iguais_ou_sem_cadeia():
+    iguais = [_candidato_com_classes(1, ("REsp",)), _candidato_com_classes(2, ("REsp",))]
+    assert decidir(_estado_com_classes(iguais, ("REsp",)))["classificacao"] == "incompleta"
+    distintos = [_candidato_com_classes(1, ("REsp",)), _candidato_com_classes(2, ("RE",))]
+    assert decidir(_estado_com_classes(distintos, ()))["classificacao"] == "incompleta"

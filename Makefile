@@ -1,4 +1,4 @@
-.PHONY: setup setup-llm check-data test lint format rodar grafo
+.PHONY: setup setup-llm check-data test lint format rodar calibrar grafo
 
 setup:        ## ambiente base
 	uv sync
@@ -10,7 +10,10 @@ DADOS ?= data
 
 rodar:        ## gera out/submission.csv (ex.: make rodar ARGS="--avaliar")
 	uv run python -m citacoes.rodar --txt $(DADOS)/txt --saida out --oficiais $(DADOS) \
-		--db $(DADOS)/desafio1_bracis.db --gabarito $(DADOS)/goldenset.csv $(ARGS)
+		--db $(DADOS)/desafio1_bracis.db --gabarito $(DADOS)/goldenset_offsets.csv $(ARGS)
+
+calibrar:     ## ajusta params/tabela_confianca.json com a última rodada (rode make rodar antes)
+	uv run python scripts/ajustar_confianca.py --rastro out/rastro.jsonl --gabarito $(DADOS)/goldenset_offsets.csv --destino params/tabela_confianca.json
 
 grafo:        ## exporta o diagrama do grafo para docs/grafo.mmd
 	uv run python -m citacoes.grafo.montagem

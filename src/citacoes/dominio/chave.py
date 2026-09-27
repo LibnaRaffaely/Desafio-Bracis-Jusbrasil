@@ -30,17 +30,54 @@ _CADEIA_NUMERICA = re.compile(r"[A-Za-z0-9]+(?:[.\-][A-Za-z0-9]+)*")
 # dígito de verdade em algum campo (assim "REsp" nunca vira número, mas
 # "7OOO449" ou "2023.O.00" — onde o "O" isolado é vizinho de dígitos reais
 # via ponto —, viram número).
-_LETRA_PARA_DIGITO = {"O": "0", "o": "0", "I": "1", "l": "1", "S": "5", "s": "5"}
+# G/g por 6/9 aparecem no Nível 2 do gabarito ("Recl. n° 6G.838", "1.45g.779").
+_LETRA_PARA_DIGITO = {
+    "O": "0",
+    "o": "0",
+    "I": "1",
+    "l": "1",
+    "S": "5",
+    "s": "5",
+    "G": "6",
+    "g": "9",
+}
 
-# O agrupamento de milhar brasileiro (reagrupar()) pode deixar o primeiro
-# campo com 1 dígito só (ex.: "1 307 026" — "1" sozinho). Se o ruído de OCR
-# atinge exatamente esse campo, ele vira uma letra sem nenhum dígito vizinho
+# O agrupamento de milhar brasileiro (reagrupar()) pode deixar um campo
+# inteiro, isolado por espaço, feito só de dígitos 0/1/5 (ex.: "1 307 026",
+# "0.0.0 00"). Se o ruído de OCR atinge todos os dígitos desse campo, ele vira
+# um token só de letras confundíveis ("l", "OO", "lOS"), sem dígito vizinho
 # via ponto/hífen para ancorar a correção acima — só um espaço o separa do
-# resto. Por isso a 2ª passada abaixo trata só o caso estrito de um token
-# feito de UMA letra confundível, isolado por espaço, com vizinho numérico:
-# não generaliza para tokens de 2+ letras porque aí colide com palavras reais
-# do português ("os", "so").
-_TOKEN_CONFUNDIVEL_ISOLADO = re.compile(r"^[OoIlSs]$")
+# resto. A 2ª passada abaixo corrige esse token quando um vizinho é número.
+# Ficam de fora as palavras do português feitas só dessas letras, que
+# aparecem ao lado de números ("os", "so").
+_TOKEN_CONFUNDIVEL_ISOLADO = re.compile(r"^[OoIlSsGg]+(?:[.\-][OoIlSsGg]+)*[.\-]?$")
+_PALAVRAS_CONFUNDIVEIS = frozenset({"os", "Os", "so", "So", "sol", "isso", "Isso"})
+_MAIOR_TOKEN_CONFUNDIVEL = 9
+_SEPARADOR_CAMPO = re.compile(r"([.\-])")
+
+
+def _corrige_campo(campo: str) -> str:
+    """Um campo da cadeia (entre "." ou "-") só é corrigido se tiver dígito
+    ou se for feito só de letras confundíveis. "TST" em "TST-ED-RR-3400-05"
+    tem "T", que não se confunde com dígito: é sigla, não número."""
+    if any(c.isdigit() for c in campo) or all(c in _LETRA_PARA_DIGITO for c in campo):
+        return "".join(_LETRA_PARA_DIGITO.get(c, c) for c in campo)
+    return campo
+
+
+def _vizinho_numerico(partes: list[str], i: int, passo: int) -> bool:
+    j = i + 2 * passo
+    if j < 0 or j >= len(partes):
+        return False
+    espaco = partes[i + passo]
+    # Uma linha em branco separa parágrafos: o "I" que abre o parágrafo
+    # seguinte (algarismo romano) não é dígito do número anterior.
+    if espaco.count("\n") >= 2:
+        return False
+    # O dígito tem de encostar no token: em "ignorar o RR-1835-06..." o
+    # vizinho começa por "R", e o "o" é artigo, não zero.
+    vizinho = partes[j]
+    return (vizinho[-1:] if passo < 0 else vizinho[:1]).isdigit()
 
 
 def corrigir_ocr_numerico(trecho: str) -> tuple[str, bool]:
@@ -57,7 +94,10 @@ def corrigir_ocr_numerico(trecho: str) -> tuple[str, bool]:
         cadeia = match.group(0)
         if not any(c.isdigit() for c in cadeia):
             return cadeia
-        novo = "".join(_LETRA_PARA_DIGITO.get(c, c) for c in cadeia)
+        novo = "".join(
+            parte if _SEPARADOR_CAMPO.fullmatch(parte) else _corrige_campo(parte)
+            for parte in _SEPARADOR_CAMPO.split(cadeia)
+        )
         if novo != cadeia:
             alterado = True
         return novo
@@ -65,15 +105,22 @@ def corrigir_ocr_numerico(trecho: str) -> tuple[str, bool]:
     corrigido = _CADEIA_NUMERICA.sub(_corrige_cadeia, trecho)
 
     partes = re.split(r"(\s+)", corrigido)  # alterna token, espaço, token...
-    for i in range(0, len(partes), 2):
-        token = partes[i]
-        if not _TOKEN_CONFUNDIVEL_ISOLADO.match(token):
-            continue
-        vizinho_antes = partes[i - 2] if i >= 2 else ""
-        vizinho_depois = partes[i + 2] if i + 2 < len(partes) else ""
-        if any(c.isdigit() for c in vizinho_antes) or any(c.isdigit() for c in vizinho_depois):
-            partes[i] = _LETRA_PARA_DIGITO[token]
-            alterado = True
+    # Repete até estabilizar: em "OO O 5", o "O" só vira dígito depois do
+    # "5", e o "OO" só depois do "O".
+    mudou = True
+    while mudou:
+        mudou = False
+        for i in range(0, len(partes), 2):
+            token = partes[i]
+            if (
+                len(token) > _MAIOR_TOKEN_CONFUNDIVEL
+                or token in _PALAVRAS_CONFUNDIVEIS
+                or not _TOKEN_CONFUNDIVEL_ISOLADO.match(token)
+            ):
+                continue
+            if _vizinho_numerico(partes, i, -1) or _vizinho_numerico(partes, i, 1):
+                partes[i] = "".join(_LETRA_PARA_DIGITO.get(c, c) for c in token)
+                alterado = mudou = True
     corrigido = "".join(partes)
 
     return corrigido, alterado
@@ -138,12 +185,18 @@ def _indice_para(tabela: dict[str, tuple[str, ...]]) -> dict[str, str]:
     return indice_variantes(tabela)
 
 
+# OCR que cola a preposição na palavra seguinte em caixa alta: "AgInt
+# nosEMBARGOS DE DIVERGÊNCIA". Só separa antes de 4+ maiúsculas, para não
+# quebrar siglas mistas como "AgREsp" ou "AgARR".
+_PALAVRA_COLADA = re.compile(r"(?<=[a-zà-ÿ])(?=[A-ZÀ-Þ]{4,})")
+
+
 def _casar_ngramas(trecho: str, indice: dict[str, str], max_ngram: int) -> list[str]:
     """Varre `trecho` da esquerda para a direita casando o maior n-grama
     possível contra `indice` a cada posição (não sobrepõe), na ordem em que
     aparece — usado para achar cadeias como "EDcl no AgInt no ARESP".
     """
-    tokens = normalizar_comparavel(trecho).split()
+    tokens = normalizar_comparavel(_PALAVRA_COLADA.sub(" ", trecho)).split()
     achados: list[str] = []
     i = 0
     while i < len(tokens):
@@ -181,7 +234,35 @@ def diploma_legal(trecho: str) -> str | None:
     indice = _indice_para(DIPLOMAS)
     max_ngram = max(len(v.split()) for vs in DIPLOMAS.values() for v in vs)
     achados = _casar_ngramas(trecho, indice, max_ngram)
-    return achados[0] if achados else None
+    if achados:
+        return achados[0]
+    return _diploma_aproximado(trecho, DIPLOMAS)
+
+
+# O Nível 2 também troca letras ("Constituição Fedcral", "profcrido"). Só os
+# nomes por extenso (2+ palavras, 10+ letras) entram na comparação
+# aproximada: uma sigla curta com uma letra trocada já é outra sigla.
+_SIMILARIDADE_MINIMA_DIPLOMA = 90
+
+
+def _diploma_aproximado(trecho: str, diplomas: dict[str, tuple[str, ...]]) -> str | None:
+    from rapidfuzz import fuzz
+
+    alvo = assinatura_tolerante_ocr(trecho)
+    melhor: tuple[float, int, str] | None = None
+    for codigo, variantes in diplomas.items():
+        for variante in variantes:
+            if len(variante.split()) < 2 or len(variante) < 10:
+                continue
+            nota = fuzz.partial_ratio(assinatura_tolerante_ocr(variante), alvo)
+            if nota < _SIMILARIDADE_MINIMA_DIPLOMA:
+                continue
+            # Empate de nota: a variante mais longa vence ("Código Penal
+            # Militar" sobre "Código Penal").
+            chave = (nota, len(variante), codigo)
+            if melhor is None or chave[:2] > melhor[:2]:
+                melhor = chave
+    return melhor[2] if melhor else None
 
 
 def tribunal_citado(trecho: str) -> str | None:

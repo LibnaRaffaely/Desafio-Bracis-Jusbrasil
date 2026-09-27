@@ -41,11 +41,11 @@ Tudo do span candidato, mais:
 |---|---|---|
 | `campos` | normalizar / agente_parser | chaves numéricas, classe, UF, tribunal, relator, ano, órgão, diploma, artigo, parágrafo, inciso, alínea, súmula, vinculante |
 | `ocr_corrigido` | normalizar | se alguma confusão letra→dígito foi desfeita |
-| `candidatos` | buscar_no_catalogo | id, tribunal, natureza, conflitos duros, divergências brandas |
+| `candidatos` | buscar_no_catalogo | id, tribunal, natureza, conflitos duros, divergências brandas, cadeia de classes do registro |
 | `metodo_busca` | buscar_no_catalogo | catalogo, lei_sumula, sem_busca |
 | `escolha_juiz` | agente_juiz | id escolhido ou nada, e justificativa (só log) |
 | `classificacao`, `id_canonico`, `tipo` | decidir | resultado |
-| `metodo_decisao` | decidir | sem_identificador, cardinalidade_0, cardinalidade_1, cardinalidade_2mais, veto_quimera, juiz |
+| `metodo_decisao` | decidir | sem_identificador, cardinalidade_0, cardinalidade_1, cardinalidade_2mais, veto_quimera, desempate_duplicata, desempate_classe, desempate_score, juiz |
 | `confianca` | calibrar | valor entre 0 e 1 |
 
 ## Invariantes

@@ -46,14 +46,20 @@ class CamposIdentificador:
 
 
 _SUMULA = re.compile(
-    r"s[uú]mula\s+(?P<vinculante>vinculante\s+)?n?[º°o]?\.?\s*(?P<num>[\dOolISs]+)",
+    # "Súmula", "Súm." e o "5úmula" do Nível 2 (S trocado por 5).
+    r"(?<!\w)[s5][uú]m(?:ula)?\.?\s+(?P<vinculante>vinculante\s+)?n?[º°o]?\.?\s*"
+    r"(?P<num>[\dOolISs]+)",
     re.IGNORECASE,
 )
 # Número do artigo: dígitos agrupados de 3 em 3 por ponto de milhar
 # ("1.134") OU uma cadeia sem separador ("927") — nessa ordem, senão o milhar
 # casa só o primeiro grupo ("1.134" -> "1", perdendo os outros dígitos).
+# O Nível 2 solta espaço ou quebra de linha dentro do número ("art. 8 18",
+# "art. 2\n90"); a continuação precisa começar por dígito, para "art. 5 os"
+# não virar artigo 505.
 _ARTIGO = re.compile(
-    r"\bart(?:igo)?s?\.?\s*(?P<num>[\dOolISs]{1,3}(?:\.[\dOolISs]{3})+|[\dOolISs]+)\s*[º°o]?",
+    r"\bart(?:igo)?s?\.?\s*(?P<num>[\dOolISs]{1,3}(?:\.[\dOolISs]{3})+"
+    r"|[\dOolISs]+(?:\s\d[\dOolISs]*)*)\s*[º°o]?",
     re.IGNORECASE,
 )
 _PARAGRAFO_UNICO = re.compile(r"par[aá]grafo\s+[uú]nico|§\s*[uú]nico", re.IGNORECASE)
@@ -69,6 +75,12 @@ _CADEIA_NUMERO = re.compile(r"\d(?:[\d.\-]*\d)?")
 # cabeçalho real (extrair_cabecalho sobre desafio1_bracis.db) tem 172 —
 # folga de sobra dos dois lados para não confundir um com o outro.
 _LIMITE_TRECHO_CURTO = 120
+# Menor número buscável num span. Eram 5 ("Rcl 66.516"), mas há classes com
+# número de 4 dígitos no gabarito e na base: "Suspensão de Liminar e de
+# Sentença nº 2.883", "AR n. 2785", "Ação Rescisória 2.614". O catálogo
+# indexa esses números pelo rótulo "Nº" do cabeçalho (catalogo/construir.py).
+_MINIMO_DIGITOS_SPAN = 4
+_ANO = re.compile(r"(?:19|20)\d{2}")
 
 
 def _so_digitos(bruto: str) -> str | None:
@@ -157,7 +169,9 @@ def extrair_campos(trecho: str, tipo_bruto: str) -> tuple[CamposIdentificador, b
     # sempre a do próprio registro, nunca a de algo citado depois dela.
     if len(corrigido) <= _LIMITE_TRECHO_CURTO:
         digitos_brutos = "".join(c for c in corrigido if c.isdigit())
-        numero = digitos_brutos if len(digitos_brutos) >= 5 else None
+        numero = digitos_brutos if len(digitos_brutos) >= _MINIMO_DIGITOS_SPAN else None
+        if numero and len(numero) == _MINIMO_DIGITOS_SPAN and _ANO.fullmatch(numero):
+            numero = None  # "julgado do STF proferido em 2024": ano, não número
     else:
         numero = None
         for m_num in _CADEIA_NUMERO.finditer(corrigido):

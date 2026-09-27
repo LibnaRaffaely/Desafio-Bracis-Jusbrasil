@@ -46,6 +46,7 @@ MetodoDecisao = Literal[
     "cardinalidade_2mais",
     "veto_quimera",
     "desempate_duplicata",
+    "desempate_classe",
     "desempate_score",
     "juiz",
 ]
@@ -223,6 +224,16 @@ def _melhor_por_score(
     return None
 
 
+def _unico_com_mesmas_classes(
+    por_id: Mapping[int, Candidato], estado: EstadoCitacao
+) -> Candidato | None:
+    classes = estado.campos.classes_compostas if estado.campos else ()
+    if not classes:
+        return None
+    iguais = [c for c in por_id.values() if c.classes_compostas == classes]
+    return iguais[0] if len(iguais) == 1 else None
+
+
 def decidir(
     estado: EstadoCitacao,
     parametros: ParametrosDecisao = PARAMETROS_PADRAO,
@@ -238,6 +249,8 @@ def decidir(
        1 -> real, 2+ -> desempates abaixo;
     4. (1a) ids com a mesma assinatura de conteúdo colapsam no menor id;
        se sobra 1 -> real / `desempate_duplicata`;
+       (1c) se só um registro tem a mesma cadeia de classes da citação
+       -> real / `desempate_classe`;
     5. (1b) com `habilitar_desempate_score`, maior score com margem
        -> real / `desempate_score`;
     6. com `habilitar_juiz`, o juiz escolhe entre os que sobraram
@@ -248,7 +261,7 @@ def decidir(
     nó `buscar` para spans sem identificador (docs/arquitetura.md, aresta
     "sem identificador" -> `decidir`), deixando `metodo_busca=None`; e o
     Módulo 3 emite `"sem_busca"` quando o identificador não é buscável
-    (menos de 5 dígitos — ver `dominio/campos.py`). A regra documentada
+    (menos de 4 dígitos — ver `dominio/campos.py`). A regra documentada
     manda incompleta nos dois casos, sem tentar recuperar nada aqui.
     """
     if estado.metodo_busca in (None, "sem_busca"):
@@ -280,6 +293,14 @@ def decidir(
     if len(restantes) == 1:
         (escolhido,) = restantes.values()
         return _saida("real", "desempate_duplicata", escolhido, estado.tipo_bruto)
+
+    # Desempate 1c — cadeia de classes idêntica à da citação. "AgInt no
+    # REsp 1.597.443" e "AgInt nos EREsp 1.597.443" têm o mesmo número; só
+    # um deles tem exatamente a cadeia citada. Sem cadeia na citação, ou com
+    # 0 ou 2+ registros idênticos, não decide.
+    escolhido = _unico_com_mesmas_classes(restantes, estado)
+    if escolhido is not None:
+        return _saida("real", "desempate_classe", escolhido, estado.tipo_bruto)
 
     # Desempate 1b — opcional e conservador (margem estrita).
     if parametros.habilitar_desempate_score:

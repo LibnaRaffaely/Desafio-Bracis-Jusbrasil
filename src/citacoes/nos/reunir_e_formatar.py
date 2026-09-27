@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from citacoes.grafo.estados import EstadoCitacao, EstadoDocumento
 
 
@@ -13,14 +14,13 @@ def _tipo_final(citacao: EstadoCitacao) -> str:
 def _validar(citacao: EstadoCitacao) -> None:
     assert citacao.inicio >= 0, f"inicio negativo: {citacao.inicio}"
     assert citacao.fim > citacao.inicio, f"fim <= inicio: {citacao.fim} <= {citacao.inicio}"
-    assert citacao.classificacao in {"real", "inventada", "incompleta"}, \
+    assert citacao.classificacao in {"real", "inventada", "incompleta"}, (
         f"classificacao invalida: {citacao.classificacao}"
+    )
     if citacao.classificacao == "real":
-        assert citacao.id_canonico is not None, \
-            f"real sem id_canonico: {citacao.trecho}"
+        assert citacao.id_canonico is not None, f"real sem id_canonico: {citacao.trecho}"
     if citacao.confianca is not None:
-        assert 0.0 <= citacao.confianca <= 1.0, \
-            f"confianca fora do intervalo: {citacao.confianca}"
+        assert 0.0 <= citacao.confianca <= 1.0, f"confianca fora do intervalo: {citacao.confianca}"
 
 
 def _formatar_citacao(citacao: EstadoCitacao) -> dict:

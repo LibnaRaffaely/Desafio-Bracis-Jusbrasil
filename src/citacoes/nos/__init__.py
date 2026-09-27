@@ -1,4 +1,5 @@
 from citacoes.nos.buscar_no_catalogo import buscar_no_catalogo, resolver
+from citacoes.nos.calibrar import calibrar, calibrar_confianca
 from citacoes.nos.decidir import (
     Juiz,
     JuizDesligado,
@@ -16,9 +17,11 @@ __all__ = [
     "JuizLLM",
     "ParametrosDecisao",
     "buscar_no_catalogo",
+    "calibrar",
+    "calibrar_confianca",
     "decidir",
     "decidir_classe",
     "normalizar",
     "resolver",
-    "reunir_e_formatar"
+    "reunir_e_formatar",
 ]
