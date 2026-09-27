@@ -1,0 +1,30 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	ler_documento(ler_documento)
+	extrair_spans(extrair_spans)
+	reunir_e_formatar(reunir_e_formatar)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> ler_documento;
+	extrair_spans -.-> processar_citacao\3anormalizar;
+	extrair_spans -.-> reunir_e_formatar;
+	ler_documento --> extrair_spans;
+	processar_citacao\3adecidir --> reunir_e_formatar;
+	reunir_e_formatar --> __end__;
+	subgraph processar_citacao
+	processar_citacao\3anormalizar(normalizar)
+	processar_citacao\3abuscar_no_catalogo(buscar_no_catalogo)
+	processar_citacao\3adecidir(decidir)
+	processar_citacao\3abuscar_no_catalogo --> processar_citacao\3adecidir;
+	processar_citacao\3anormalizar -.-> processar_citacao\3abuscar_no_catalogo;
+	processar_citacao\3anormalizar -.-> processar_citacao\3adecidir;
+	end
+	classDef default fill:#0c4a6e,stroke:#38bdf8,stroke-width:2px,color:#e0f2fe,line-height:1.2
+	classDef first fill:#312e81,stroke:#a5b4fc,stroke-width:2px,color:#e0e7ff
+	classDef last fill:#312e81,stroke:#a5b4fc,stroke-width:2px,color:#e0e7ff
+	style processar_citacao fill:#10b98114,stroke:#34d399,stroke-width:1.5px,stroke-dasharray:6 4,color:#6ee7b7
+

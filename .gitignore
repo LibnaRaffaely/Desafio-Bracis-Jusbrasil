@@ -222,6 +222,7 @@ data/*
 # Gerados
 artifacts/
 outputs/
+out/
 .venv/
 *.pyc
 .ipynb_checkpoints/
