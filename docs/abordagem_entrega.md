@@ -42,11 +42,14 @@ O diagrama do grafo está em [arquitetura.md](arquitetura.md).
 
 O catálogo é construído a partir do `.db` original, com enriquecimento permitido pelo desafio. A construção é feita pelo código em `src/citacoes/catalogo/construir.py`, a partir de qualquer `.db` no formato original.
 
+O hash (SHA-256) do `.db` de origem é guardado ao lado do catálogo, em `artifacts/catalogo_canonico.db.sha256`. Se a base mudar, o pipeline para e pede `--construir-catalogo`.
+
 Pontos principais:
 
 * a busca usa uma chave normalizada, construída pelos dois lados (citação e catálogo) com a mesma função, e não uma consulta FTS5 por frase (decisão D1);
 * o número próprio de cada acórdão é extraído por regras específicas por tribunal (decisão D3);
-* artigos de lei só casam quando o diploma é reconhecido e igual dos dois lados (decisão D5).
+* artigos de lei só casam quando o diploma é reconhecido e igual dos dois lados (decisão D5);
+* a verificação do hash está registrada na decisão D10.
 
 Tempo de construção: [PLACEHOLDER: tempo em minutos].
 
@@ -73,11 +76,12 @@ A tabela é gerada por `make calibrar` (ver seção 4 do README).
 ## Reprodutibilidade
 
 * Execução via Docker, com Python 3.12, uv 0.5.0 e dependências fixadas em `uv.lock`.
-* Sem rede durante a execução.
+* Rede só para construir a imagem na primeira vez; a execução roda sem rede (`--network none`).
 * Limites de recursos do desafio: até 8 CPUs e 32 GB de memória nos scripts `run`.
 * Sem modelos de linguagem, sem GPU.
 * Sem caminhos absolutos: os dados entram por `--db` e `--txt`, ou pela pasta `data/`.
-* Determinismo da saída: [PLACEHOLDER: confirmar comparando o hash do `submission.csv` em duas execuções].
+* O container é removido ao fim de cada execução (`--rm`, decisão D9); os resultados ficam em `out/` e `artifacts/`.
+* Determinismo da saída: o hash SHA-256 do `submission.csv` é idêntico entre execuções repetidas e entre Windows e Linux (WSL), com os mesmos `.db` e `.txt`.
 
 ## Resultados
 
@@ -94,19 +98,15 @@ Score na submissão oficial do Kaggle: [PLACEHOLDER].
 
 Evolução detalhada, com a evidência de cada mudança, em [melhorias_score.md](melhorias_score.md).
 
-### Robustez
-
-Com ruído sintético aplicado aos trechos do gabarito ([PLACEHOLDER: número de sementes]):
-
-| Medida | Resultado |
-|---|---|
-| Inventadas marcadas como reais (τ) | [PLACEHOLDER] |
-| Reais perdidas | [PLACEHOLDER] de [PLACEHOLDER] |
 
 ## Limitações
 
-[PLACEHOLDER: a definir]
+* O score do dev set é otimista: as regras foram desenhadas olhando para ele, e o conjunto final é cego.
+* O relatório `erros.csv` (análise de erros por citação) ainda não é gerado; o `rodar.py` avisa e pula a etapa.
+* Formas de citação ausentes do dev set não estão cobertas.
+* Os agentes LLM não foram validados, pois nenhuma citação do dev set chegou a eles.
 
 ## Próximos passos
 
-[PLACEHOLDER: a definir]
+* Implementar o gerador de `erros.csv` em `src/citacoes/avaliacao/`.
+* Reconstruir o catálogo automaticamente quando o `.db` mudar, em vez de parar (hoje o usuário precisa passar `--construir-catalogo`).

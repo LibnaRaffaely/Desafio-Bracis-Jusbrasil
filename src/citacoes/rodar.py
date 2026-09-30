@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -30,6 +31,7 @@ from citacoes.grafo.montagem import como_citacao, montar_grafo_documento, montar
 NOME_CATALOGO = "catalogo_canonico.json"
 NOME_TABELA_CONFIANCA = "tabela_confianca.json"
 IOU_MAXIMO = 0.5
+NOME_HASH_DB = "catalogo_canonico.db.sha256"
 
 
 class InvarianteQuebrada(RuntimeError):
@@ -37,6 +39,13 @@ class InvarianteQuebrada(RuntimeError):
 
 
 # ── carga ───────────────────────────────────────────────────────────────────
+def file_sha256(path: Path) -> str:
+    """SHA-256 of the file content, read in chunks to keep memory low."""
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def carregar_catalogo(pasta_artifacts: Path, db: Path, construir: bool) -> CatalogoCanonico:
@@ -47,12 +56,23 @@ def carregar_catalogo(pasta_artifacts: Path, db: Path, construir: bool) -> Catal
         catalogo = construir_catalogo_de_arquivo(db)
         pasta_artifacts.mkdir(parents=True, exist_ok=True)
         salvar(catalogo, caminho)
+        (pasta_artifacts / NOME_HASH_DB).write_text(file_sha256(db) + "\n", encoding="utf-8")
         return catalogo
     if not caminho.exists():
         sys.exit(
             f"catálogo não encontrado em {caminho}. Construa-o antes (etapa offline): "
             f"rode de novo com --construir-catalogo --db {db}"
         )
+
+    caminho_hash = pasta_artifacts / NOME_HASH_DB
+    saved_hash = caminho_hash.read_text(encoding="utf-8").strip() if caminho_hash.exists() else None
+    if saved_hash != file_sha256(db):
+        sys.exit(
+            f"O catálogo em {caminho} não corresponde à base {db.name} "
+            "(a base mudou ou o catálogo não tem hash registrado). "
+            "Rode de novo com --construir-catalogo."
+        )
+
     catalogo = carregar(caminho)
     if any(r.hash_texto is None for r in catalogo.registros):
         print(
@@ -81,7 +101,7 @@ def carregar_modelo(args: argparse.Namespace) -> object | None:
     """Só importa `agentes/` com algum agente ligado. O único agente
     implementado é o juiz, cujo backend é `BackendTransformers`
     (agentes/juiz.py: greedy, seed fixa, pesos locais com revisão fixada)."""
-    if not args.juiz:
+    if not getattr(args, "juiz", False):
         return None
     if args.modelo is None:
         sys.exit("--juiz exige --modelo (caminho local dos pesos ou id do HF com --revisao)")
@@ -307,18 +327,25 @@ def _argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         help="pasta com json_to_submission.py e kaggle_metric.py oficiais",
     )
     p.add_argument("--construir-catalogo", action="store_true", help="reconstrói artifacts/")
-    p.add_argument("--db", type=Path, default=None, help="base SQLite (padrão: data/desafio1_bracis.db)")
+    p.add_argument(
+        "--db", type=Path, default=None, help="base SQLite (padrão: data/desafio1_bracis.db)"
+    )
 
     ## ---------- Comentei o uso dos modelos, para não correr o risco em um fluxo não testado
-    #p.add_argument("--extrator-llm", action="store_true")
-    #p.add_argument("--parser-llm", action="store_true")
-    #p.add_argument("--juiz", action="store_true")
-    #p.add_argument("--modelo", help="pesos do juiz: caminho local ou id do HF")
-    #p.add_argument("--revisao", help="commit fixo dos pesos (obrigatório para id do HF)")
-    #p.add_argument("--seed", type=int, default=42) 
+    # p.add_argument("--extrator-llm", action="store_true")
+    # p.add_argument("--parser-llm", action="store_true")
+    # p.add_argument("--juiz", action="store_true")
+    # p.add_argument("--modelo", help="pesos do juiz: caminho local ou id do HF")
+    # p.add_argument("--revisao", help="commit fixo dos pesos (obrigatório para id do HF)")
+    # p.add_argument("--seed", type=int, default=42)
 
     p.add_argument("--avaliar", action="store_true")
-    p.add_argument("--gabarito", type=Path, default=None, help="gabarito para avaliação (padrão: data/goldenset_offsets.csv)")
+    p.add_argument(
+        "--gabarito",
+        type=Path,
+        default=None,
+        help="gabarito para avaliação (padrão: data/goldenset_offsets.csv)",
+    )
     p.add_argument("--baseline", type=Path, default=Path("baseline/scores.json"))
 
     args = p.parse_args(argv)
@@ -362,7 +389,7 @@ def _saida_tolerante() -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     _saida_tolerante()
     args = _argumentos(argv)
-    #for flag, ligada in (("--extrator-llm", args.extrator_llm), ("--parser-llm", args.parser_llm)):
+    # for flag, ligada in (("--extrator-llm", args.extrator_llm), ("--parser-llm", args.parser_llm)):
     #   if ligada:
     #      sys.exit(f"{flag}: o agente não existe em citacoes/agentes/ ainda.")
 

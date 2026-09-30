@@ -2,7 +2,8 @@
 
 Verificador de citações jurídicas para o Desafio BRACIS 2026 (JusBrasil).
 Pipeline híbrido orquestrado com LangGraph: nós determinísticos de extração,
-normalização, busca em catálogo canônico (SQLite FTS5) e decisão por
+normalização, busca em catálogo canônico (chave normalizada, construído a partir
+da base SQLite) e decisão por
 heurística calibrada.
 
 ## Como executar
@@ -99,9 +100,14 @@ A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1
 > reconstruí-la depois de alterar `src/`, `scripts/`, `oficiais/`, `baseline/`,
 > `params/` (por exemplo, ao recalibrar a confiança) ou as dependências
 > (`pyproject.toml` e `uv.lock`).
->
 >O `--rebuild` também executa o pipeline em
 > seguida, então exige `--db` e `--txt` (ou os dados em `data/`).
+>
+> O catálogo é gerado a partir do `.db`. Se a base mudar, o pipeline para e
+> pede `--construir-catalogo`, que reconstrói o catálogo a partir da nova base.
+> `--rebuild` não mexe no catálogo
+>
+> Como esperado, acesso a rede será necessário para construir a imagem, não para a execução. 
 
 ### 4. Desenvolvimento
 
@@ -188,6 +194,7 @@ imagem, e as pastas `out/` e `artifacts/` do repositório).
 | `--params` | `params` | Pasta da tabela de confiança | Não | Sim |
 | `--oficiais` | `oficiais` | Pasta com os scripts oficiais do Kaggle | Não | Sim |
 | `--baseline` | `baseline/scores.json` | Score de referência para o portão de regressão | Não | Sim |
+| `--construir-catalogo` | desligado | Reconstrói o catálogo a partir da base. Obrigatório quando o `.db` muda | Automático quando o catálogo não existe | Sim |
 
 Os caminhos marcados como padrão podem ser sobrescritos passando o parâmetro
 explicitamente. Nos scripts Docker, só `--db`, `--txt` e `--gabarito`:
@@ -230,10 +237,7 @@ uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo integrado
 
 ## Abordagem
 
-A solução é determinística: extração, normalização, busca no catálogo canônico
-(SQLite FTS5) e decisão por heurística calibrada. Não usa modelos de linguagem
-na execução, por isso não há pesos de modelos a baixar, e a execução roda
-offline. Os detalhes estão em [docs/abordagem_entrega.md](docs/abordagem_entrega.md). 
+A solução é determinística: extração, normalização, busca no catálogo canônico (chave normalizada, construído a partir da base SQLite) e decisão por heurística calibrada. Não usa modelos de linguagem na execução, por isso não há pesos de modelos a baixar, e a execução roda offline. Os detalhes estão em [docs/abordagem_entrega.md](docs/abordagem_entrega.md). 
 
 ## Documentação
 
