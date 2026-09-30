@@ -114,7 +114,29 @@ Antes de terminar, o pipeline confere as invariantes de `docs/contratos.md`
 e falha se alguma for quebrada. Com `--avaliar`, ele também compara o
 resultado com `baseline/scores.json` e avisa se algum nível piorou.
 
-### 5. Ligar o Agente-Juiz (opcional)
+### 5. Reprodução Via Docker (recomendado)
+
+```bash
+# construir a imagem
+docker build -t bracis-citacoes .
+
+# rodar com os limites do envelope (sem rede, 8 vCPUs, 32 GB RAM)
+docker run \
+  --network none \
+  --cpus 8 \
+  --memory 32g \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/artifacts:/app/artifacts \
+  -v $(pwd)/out:/app/out \
+  bracis-citacoes
+```
+
+No Windows PowerShell, substitua `$(pwd)` por `${PWD}` e `\` por `` ` ``.
+
+### 6. Ligar o Agente-Juiz (opcional)
+
+> **Nota:** a submissão final não utilizou o Agente-Juiz. 
+> Esta seção documenta como ativá-lo para experimentação futura.
 
 ```bash
 uv sync --extra juiz

@@ -4,18 +4,18 @@ Envelope oficial: 1 GPU de 24 GB, ~8 vCPUs, 32 GB de RAM, sem chaves de API.
 
 ## Checklist
 
-- [ ] Um comando reproduz a submissão do zero: construir o catálogo e rodar
+- [X] Um comando reproduz a submissão do zero: construir o catálogo e rodar
       o grafo em todos os .txt.
-- [ ] `uv.lock` versionado; instalação com `uv sync --frozen`.
-- [ ] `params/` versionado (nada é reajustado no conjunto final, que é cego).
-- [ ] Pesos do modelo (se houver) com link e revisão fixada no Hugging
-      Face, baixados por script com conferência de hash.
-- [ ] Agentes LLM com `temperature=0`, seed explícita, lote fixo.
-- [ ] Execução sem rede, inclusive sem rastreamento em nuvem.
-- [ ] Dockerfile testado numa máquina limpa com os limites do envelope:
+- [X] `uv.lock` versionado; instalação com `uv sync --frozen`.
+- [X] `params/` versionado (nada é reajustado no conjunto final, que é cego).
+- [X] Pesos do modelo (se houver) com link e revisão fixada no Hugging
+      Face, baixados por script com conferência de hash. **Não aplicável: submissão final sem LLM.**
+- [X] Agentes LLM com `temperature=0`, seed explícita, lote fixo. **Não aplicável: submissão final sem LLM.**
+- [X] Execução sem rede, inclusive sem rastreamento em nuvem.
+- [X] Dockerfile testado numa máquina limpa com os limites do envelope:
       `docker run --network none --cpus 8 --memory 32g ...`
       (e `--gpus` se houver LLM).
-- [ ] README com o comando exato, o modelo e o hardware usados.
+- [X] README com o comando exato, o modelo e o hardware usados.
 
 ## Docker
 
