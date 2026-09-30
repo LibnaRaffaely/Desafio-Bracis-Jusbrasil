@@ -111,7 +111,9 @@ A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1
 ### 4. Desenvolvimento
 
 > **NOTA**:
-> O Makefile sempre usa a pasta `data/`. Preencha-a conforme o `data/README.md` antes de rodar qualquer comando.
+> O Makefile usa a pasta `data/` por padrão (altere com `DADOS=<pasta>`, por exemplo
+> `make rodar DADOS=outra_pasta`). Preencha-a conforme o `data/README.md` antes de
+> rodar qualquer comando.
 
 **Instalar o ambiente:**
 
