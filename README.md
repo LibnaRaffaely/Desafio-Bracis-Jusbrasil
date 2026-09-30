@@ -72,14 +72,20 @@ baterem com os `.txt`.
 **Opção A — Reprodução Via Docker (recomendado):**
 ```bash
 # Linux/macOS
-bash run.sh
+bash run.sh [argumentos opcionais]
 
 # Windows PowerShell
-.\run.ps1
+.\run.ps1 [argumentos opcionais]
 ```
 
 A imagem é construída automaticamente na primeira execução e reutilizada nas seguintes.
 A saída fica em `out/submission.csv`.
+
+Exemplos:
+```bash
+bash run.sh --avaliar
+bash run.sh --avaliar --gabarito data/goldenset_offsets.csv
+```
 
 **Opção B — Docker manualmente:**
 
