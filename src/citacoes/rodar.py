@@ -308,10 +308,10 @@ def _argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     )
     p.add_argument("--construir-catalogo", action="store_true", help="reconstrói artifacts/")
     p.add_argument("--db", type=Path, default=None, help="base SQLite (padrão: data/desafio1_bracis.db)")
-    p.add_argument("--extrator-llm", action="store_true")
-    p.add_argument("--parser-llm", action="store_true")
 
-    ## A solução foi deterministica, não acho que valha o risco de permitir esse fluxo sem ter testado ele
+    ## ---------- Comentei o uso dos modelos, para não correr o risco em um fluxo não testado
+    #p.add_argument("--extrator-llm", action="store_true")
+    #p.add_argument("--parser-llm", action="store_true")
     #p.add_argument("--juiz", action="store_true")
     #p.add_argument("--modelo", help="pesos do juiz: caminho local ou id do HF")
     #p.add_argument("--revisao", help="commit fixo dos pesos (obrigatório para id do HF)")
@@ -356,9 +356,9 @@ def _saida_tolerante() -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     _saida_tolerante()
     args = _argumentos(argv)
-    for flag, ligada in (("--extrator-llm", args.extrator_llm), ("--parser-llm", args.parser_llm)):
-        if ligada:
-            sys.exit(f"{flag}: o agente não existe em citacoes/agentes/ ainda.")
+    #for flag, ligada in (("--extrator-llm", args.extrator_llm), ("--parser-llm", args.parser_llm)):
+    #   if ligada:
+    #      sys.exit(f"{flag}: o agente não existe em citacoes/agentes/ ainda.")
 
     caminhos = sorted(args.txt.glob("*.txt"))
     if not caminhos:
