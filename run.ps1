@@ -1,6 +1,9 @@
 $ROOT = $PWD
 
-docker build -t bracis-citacoes .
+$exists = docker image inspect bracis-citacoes 2>$null
+if (-not $exists) {
+    docker build -t bracis-citacoes .
+}
 
 if (-not (Test-Path "$ROOT/artifacts/catalogo.json")) {
     $EXTRA = "--construir-catalogo"

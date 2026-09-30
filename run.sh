@@ -1,7 +1,9 @@
 #!/bin/bash
 ROOT=$(pwd)
 
-docker build -t bracis-citacoes .
+if ! docker image inspect bracis-citacoes > /dev/null 2>&1; then
+    docker build -t bracis-citacoes .
+fi
 
 if [ ! -f "$ROOT/artifacts/catalogo.json" ]; then
     EXTRA="--construir-catalogo"
