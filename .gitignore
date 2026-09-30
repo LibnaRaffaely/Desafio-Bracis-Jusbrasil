@@ -218,6 +218,8 @@ __marimo__/
 .streamlit/secrets.toml
 # Dados da competição: privados, nunca versionar
 data/*
+!data/json_to_submission.py
+!data/kaggle_metric.py
 !data/README.md
 # Gerados
 artifacts/
