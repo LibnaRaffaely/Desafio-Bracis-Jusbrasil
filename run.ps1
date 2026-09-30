@@ -1,7 +1,11 @@
+param(
+    [Parameter(ValueFromRemainingArguments)][string[]]$ExtraArgs
+)
+
 $ROOT = $PWD
 
-$exists = docker image inspect bracis-citacoes 2>$null
-if (-not $exists) {
+docker image inspect bracis-citacoes | Out-Null
+if ($LASTEXITCODE -ne 0) {
     docker build -t bracis-citacoes .
 }
 
@@ -18,4 +22,11 @@ docker run `
   -v "${ROOT}/data:/app/data" `
   -v "${ROOT}/artifacts:/app/artifacts" `
   -v "${ROOT}/out:/app/out" `
-  bracis-citacoes
+  bracis-citacoes `
+  uv run python -m citacoes.rodar `
+    --txt /app/data/txt `
+    --saida /app/out `
+    --oficiais /app/oficiais `
+    --db /app/data/desafio1_bracis.db `
+    $EXTRA `
+    @ExtraArgs
