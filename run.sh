@@ -4,6 +4,13 @@ TXT=$2
 
 docker build -t bracis-citacoes .
 
+if [ ! -f "artifacts/catalogo.json" ]; then
+    ARGS="--construir-catalogo"
+else
+    ARGS=""
+fi
+
+
 docker run \
   --network none \
   --cpus 8 \
