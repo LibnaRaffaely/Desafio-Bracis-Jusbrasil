@@ -1,0 +1,30 @@
+
+FROM python:3.12-slim
+
+# UV
+COPY --from=ghcr.io/astral-sh/uv:0.5.0 /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# dependências
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# código fonte e parâmetros
+COPY src/ src/
+COPY params/ params/
+COPY scripts/ scripts/
+COPY Makefile ./
+
+# dados
+VOLUME ["/app/data", "/app/artifacts", "/app/out"]
+
+# Reproduzindo a submissão: 
+CMD ["uv", "run", "python", "-m", "citacoes.rodar", \
+     "--txt", "data/txt", \
+     "--saida", "out", \
+     "--oficiais", "data", \
+     "--db", "data/desafio1_bracis.db", \
+     "--gabarito", "data/goldenset_offsets.csv", \
+     "--construir-catalogo", \
+     "--avaliar"]
