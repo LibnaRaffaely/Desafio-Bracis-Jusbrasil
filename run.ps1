@@ -51,10 +51,10 @@ if (-not $Txts)  { $Txts = "data\txt" }
 if ($Evaluate -and -not $Golden) { $Golden = "data\goldenset_offsets.csv" }
 
 if (-not (Test-Path $Banco -PathType Leaf)) {
-    Fail "Erro: base não encontrada: $Banco`nPasse o caminho com: .\run.ps1 --db <caminho_db> --txt <pasta_txt>`nOu coloque os dados em data\desafio1_bracis.db"
+    Fail "Erro: base nao encontrada: $Banco`nPasse o caminho com: .\run.ps1 --db <caminho_db> --txt <pasta_txt>`nOu coloque os dados em data\desafio1_bracis.db"
 }
 if (-not (Test-Path $Txts -PathType Container)) {
-    Fail "Erro: pasta de .txt não encontrada: $Txts`nPasse o caminho com: .\run.ps1 --db <caminho_db> --txt <pasta_txt>`nOu coloque os dados em data\txt"
+    Fail "Erro: pasta de .txt nao encontrada: $Txts`nPasse o caminho com: .\run.ps1 --db <caminho_db> --txt <pasta_txt>`nOu coloque os dados em data\txt"
 }
 
 $DbAbs = (Get-Item $Banco).FullName
@@ -67,7 +67,7 @@ $GoldenMount = @()
 $GoldenFlag = @()
 if ($Golden) {
     if (-not (Test-Path $Golden -PathType Leaf)) {
-        Fail "Erro: gabarito não encontrado: $Golden`nPasse o caminho com: .\run.ps1 --avaliar --gabarito <caminho_gabarito>`nOu coloque o arquivo em data\goldenset_offsets.csv"
+        Fail "Erro: gabarito nao encontrado: $Golden`nPasse o caminho com: .\run.ps1 --avaliar --gabarito <caminho_gabarito>`nOu coloque o arquivo em data\goldenset_offsets.csv"
     }
     $GoldenAbs = (Get-Item $Golden).FullName
     $GoldenDir = Split-Path $GoldenAbs -Parent
@@ -88,6 +88,7 @@ if (-not (Test-Path "$ROOT\artifacts\catalogo_canonico.json")) { $CatalogFlag = 
 
 $DockerArgs = @(
     "run",
+    "--rm",
     "--network", "none",
     "--cpus", "8",
     "--memory", "32g",

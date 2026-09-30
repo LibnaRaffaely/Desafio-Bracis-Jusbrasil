@@ -100,9 +100,8 @@ A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1
 > `params/` (por exemplo, ao recalibrar a confiança) ou as dependências
 > (`pyproject.toml` e `uv.lock`).
 >
-> O catálogo é outro caso: se a base `.db` mudar, apague
-> `artifacts/catalogo_canonico.json` para que a próxima execução o reconstrua.
-> `--rebuild` não mexe no catálogo.
+>O `--rebuild` também executa o pipeline em
+> seguida, então exige `--db` e `--txt` (ou os dados em `data/`).
 
 ### 4. Desenvolvimento
 

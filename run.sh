@@ -56,14 +56,14 @@ fi
 
 
 if [ ! -f "$DB" ]; then
-    echo "Erro: base não encontrada: $DB"
+    echo "Erro: base nao encontrada: $DB"
     echo "Passe o caminho com: bash run.sh --db <caminho_db> --txt <pasta_txt>"
     echo "Ou coloque os dados em data/desafio1_bracis.db"
     exit 1
 fi
 
 if [ ! -d "$TXT" ]; then
-    echo "Erro: pasta de .txt não encontrada: $TXT"
+    echo "Erro: pasta de .txt nao encontrada: $TXT"
     echo "Passe o caminho com: bash run.sh --db <caminho_db> --txt <pasta_txt>"
     echo "Ou coloque os dados em data/txt"
     exit 1
@@ -77,7 +77,7 @@ GOLDEN_MOUNT=()
 GOLDEN_FLAG=()
 if [[ -n "$GOLDEN" ]]; then
     if [ ! -f "$GOLDEN" ]; then
-        echo "Erro: gabarito não encontrado: $GOLDEN"
+        echo "Erro: gabarito nao encontrado: $GOLDEN"
         echo "Passe o caminho com: bash run.sh --avaliar --gabarito <caminho_gabarito>"
         echo "Ou coloque o arquivo em data/goldenset_offsets.csv"
         exit 1
@@ -98,6 +98,7 @@ if [ ! -f "$ROOT/artifacts/catalogo_canonico.json" ]; then
 fi
 
 docker run \
+  --rm \
   --network none \
   --cpus 8 \
   --memory 32g \
