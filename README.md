@@ -42,7 +42,7 @@ Extras opcionais:
 | `uv sync --extra juiz` | Liga o Agente-Juiz (`transformers` + `torch`) |
 | `uv sync --extra llm` | Agentes via llama.cpp (compila na instalação; equivale a `make setup-llm`) |
 
-### 3. Colocar os dados (Obrigatório para ambas as vias)
+### 3. Colocar os dados na estrutura `data/` (obrigatório)
 
 Os dados da competição não vão para o git. Baixe-os da aba *Data* do Kaggle
 e organize assim:
@@ -69,11 +69,16 @@ baterem com os `.txt`.
 
 ### 4. Executar o pipeline
 
-**Opção A — Script único (recomendado para reprodutibilidade):**
+**Opção A — Reprodução Via Docker (recomendado):**
 ```bash
-bash run.sh data/desafio1_bracis.db data/txt
+# Linux/macOS
+bash run.sh
+
+# Windows PowerShell
+.\run.ps1
 ```
-Constrói a imagem Docker e roda o pipeline. Requer apenas Docker instalado.
+
+A imagem é construída automaticamente na primeira execução e reutilizada nas seguintes.
 A saída fica em `out/submission.csv`.
 
 **Opção B — Docker manualmente:**
@@ -147,7 +152,7 @@ Antes de terminar, o pipeline confere as invariantes de `docs/contratos.md`
 e falha se alguma for quebrada. Com `--avaliar`, ele também compara o
 resultado com `baseline/scores.json` e avisa se algum nível piorou.
 
-### 6. Ligar o Agente-Juiz (opcional)
+### 5. Ligar o Agente-Juiz (opcional)
 
 > **Nota:** a submissão final não utilizou o Agente-Juiz. 
 > Esta seção documenta como ativá-lo para experimentação futura.
