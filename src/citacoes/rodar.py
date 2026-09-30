@@ -5,7 +5,7 @@ grafo em lote, grava um JSON 1.2 por documento, chama os scripts oficiais
 docs/contratos.md antes de sair.
 
     python -m citacoes.rodar --txt data/txt --saida out/ \\
-        [--juiz --modelo CAMINHO] [--avaliar] [--gabarito data/goldenset_offsets.csv]
+        [--avaliar] [--gabarito data/goldenset_offsets.csv]
 """
 
 from __future__ import annotations
@@ -333,13 +333,19 @@ def _argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
 
     if not args.txt.exists():
         sys.exit(
-        f"Pasta de .txt não encontrada: {args.txt}\n"
-        f"Passe o caminho com --txt ou coloque os dados em data/txt"
+            f"Pasta de .txt não encontrada: {args.txt}\n"
+            f"Passe o caminho com --txt ou coloque os dados em data/txt"
         )
     if not args.db.exists():
         sys.exit(
             f"Base não encontrada: {args.db}\n"
             f"Passe o caminho com --db ou coloque os dados em data/desafio1_bracis.db"
+        )
+
+    if args.avaliar and not args.gabarito.exists():
+        sys.exit(
+            f"Gabarito não encontrado: {args.gabarito}\n"
+            f"Passe o caminho com --gabarito ou coloque o arquivo em data/goldenset_offsets.csv"
         )
 
     return args
@@ -368,8 +374,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         catalogo=carregar_catalogo(args.artifacts, args.db, args.construir_catalogo),
         tabela_confianca=carregar_tabela_confianca(args.params),
         modelo_llm=None,
-        usar_extrator_llm=args.extrator_llm,
-        usar_parser_llm=args.parser_llm,
+        usar_extrator_llm=False,
+        usar_parser_llm=False,
         usar_juiz=False,
     )
     resultados = rodar_documentos(caminhos, contexto)

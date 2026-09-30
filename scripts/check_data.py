@@ -49,17 +49,18 @@ def main(pasta: Path) -> int:
     txt_dir = pasta / "txt"
     db = pasta / "desafio1_bracis.db"
     gold_csv = pasta / "goldenset_offsets.csv"
-    sample = pasta / "sample_submission.csv"
+    # sample = pasta / "sample_submission.csv" 
 
     secao("Arquivos")
-    for arq in (
+    '''for arq in (
         txt_dir,
         db,
         gold_csv,
         sample,
         pasta / "kaggle_metric.py",
         pasta / "json_to_submission.py",
-    ):
+    )'''
+    for arq in (txt_dir, db, gold_csv):
         print(f"[{'ok' if arq.exists() else 'FALTA'}] {arq}")
     if not txt_dir.exists() or not db.exists():
         print("\nCRÍTICO: faltam txt/ ou a base.")
@@ -157,7 +158,7 @@ def main(pasta: Path) -> int:
     finally:
         con.close()
 
-    if sample.exists():
+    '''if sample.exists():
         secao("sample_submission")
         with open(sample, encoding="utf-8", newline="") as f:
             ids = [r["documento_id"] for r in csv.DictReader(f)]
@@ -165,7 +166,7 @@ def main(pasta: Path) -> int:
         print("ids batem com os .txt" if not diff else f"diferença: {sorted(diff)}")
         with open(sample, "rb") as f:
             quebra = "CRLF" if b"\r\n" in f.read() else "LF"
-        print(f"quebra de linha do arquivo: {quebra}")
+        print(f"quebra de linha do arquivo: {quebra}")'''
 
     secao("Resultado")
     if criticos:
