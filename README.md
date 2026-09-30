@@ -99,15 +99,14 @@ A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1
 > A imagem Docker só é construída se ainda não existir. Use `--rebuild` para
 > reconstruí-la depois de alterar `src/`, `scripts/`, `oficiais/`, `baseline/`,
 > `params/` (por exemplo, ao recalibrar a confiança) ou as dependências
-> (`pyproject.toml` e `uv.lock`).
->O `--rebuild` também executa o pipeline em
+> (`pyproject.toml` e `uv.lock`). O `--rebuild` também executa o pipeline em
 > seguida, então exige `--db` e `--txt` (ou os dados em `data/`).
 >
 > O catálogo é gerado a partir do `.db`. Se a base mudar, o pipeline para e
-> pede `--construir-catalogo`, que reconstrói o catálogo a partir da nova base.
-> `--rebuild` não mexe no catálogo
+> pede `--construir-catalogo`, que o reconstrói a partir da nova base.
+> `--rebuild` não mexe no catálogo.
 >
-> Como esperado, acesso a rede será necessário para construir a imagem, não para a execução. 
+> A rede só é necessária para construir a imagem, não para a execução.
 
 ### 4. Desenvolvimento
 
@@ -187,7 +186,6 @@ imagem, e as pastas `out/` e `artifacts/` do repositório).
 | `--db` | `data/desafio1_bracis.db` | Base SQLite de referência | Sim | Sim |
 | `--gabarito` | `data/goldenset_offsets.csv` | Arquivo de gabarito para `--avaliar` | Sim | Sim |
 | `--avaliar` | desligado | Calcula a métrica local com o gabarito; por padrão usa `data/goldenset_offsets.csv` | Sim | Sim |
-| `--construir-catalogo` | desligado | Reconstrói o catálogo a partir da base | Automático quando o catálogo não existe | Sim |
 | `--rebuild` | desligado | Reconstrói a imagem Docker | Sim | Não se aplica |
 | `--saida` | `out` | Pasta de saída | Não | Sim |
 | `--artifacts` | `artifacts` | Pasta onde o catálogo construído é salvo | Não | Sim |
