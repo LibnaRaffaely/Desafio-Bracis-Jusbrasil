@@ -229,6 +229,13 @@ uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo isolado
 uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo integrado
 ```
 
+## Abordagem
+
+A solução é determinística: extração, normalização, busca no catálogo canônico
+(SQLite FTS5) e decisão por heurística calibrada. Não usa modelos de linguagem
+na execução, por isso não há pesos de modelos a baixar, e a execução roda
+offline. Os detalhes estão em [docs/abordagem_entrega.md](docs/abordagem_entrega.md). 
+
 ## Documentação
 
 Comece por [docs/arquitetura.md](docs/arquitetura.md). Os demais documentos
