@@ -20,6 +20,7 @@ COPY src/ src/
 COPY params/ params/
 COPY scripts/ scripts/
 COPY Makefile ./
+COPY oficiais/ oficiais/
 
 # dados
 VOLUME ["/app/data", "/app/artifacts", "/app/out"]
@@ -28,8 +29,5 @@ VOLUME ["/app/data", "/app/artifacts", "/app/out"]
 CMD ["uv", "run", "python", "-m", "citacoes.rodar", \
      "--txt", "data/txt", \
      "--saida", "out", \
-     "--oficiais", "data", \
-     "--db", "data/desafio1_bracis.db", \
-     "--gabarito", "data/goldenset_offsets.csv", \
-     "--construir-catalogo", \
-     "--avaliar"]
+     "--oficiais", "oficiais", \
+     "--db", "data/desafio1_bracis.db"]
