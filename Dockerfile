@@ -7,6 +7,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.0 /uv /usr/local/bin/uv
 WORKDIR /app
 
 ENV UV_NO_SYNC=1
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app/src
 
 # dependências
 COPY pyproject.toml uv.lock README.md ./
