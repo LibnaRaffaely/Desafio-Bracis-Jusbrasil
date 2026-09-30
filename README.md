@@ -1,21 +1,21 @@
-# Desafio-Bracis-Jusbrasil
+# Desafio BRACIS – JusBrasil
 
-Verificador de citações jurídicas para o Desafio BRACIS 2026 (Jusbrasil).
-Pipeline híbrido orquestrado com LangGraph: nós determinísticos (extração,
-normalização, catálogo, decisão) e um Agente-Juiz LLM opcional.
+Verificador de citações jurídicas para o Desafio BRACIS 2026 (JusBrasil).
+Pipeline híbrido orquestrado com LangGraph: nós determinísticos de extração,
+normalização, busca em catálogo canônico (SQLite FTS5) e decisão por
+heurística calibrada.
 
 ## Como executar
 
 ### 1. Pré-requisitos
 
-**Via Docker (recomendado):**
-- [Docker](https://docs.docker.com/get-docker/) 
+**Para reprodução e avaliação:**
+- [Docker](https://docs.docker.com/get-docker/)
 
-**Via Makefile/uv:**
-- Python 3.12 (fixado em `.python-version`; o mínimo é 3.11).
-- [uv](https://docs.astral.sh/uv/) para gerenciar o ambiente.
-- `make` é opcional. Sem ele, use os comandos `uv run ...` indicados abaixo.
-- Para o Agente-Juiz: GPU com CUDA e os pesos do modelo baixados localmente.
+**Para desenvolvimento:**
+- Python 3.12 (fixado em `.python-version`; mínimo 3.11)
+- [uv](https://docs.astral.sh/uv/) para gerenciar o ambiente
+- `make` é opcional; sem ele, use os comandos `uv run ...` indicados abaixo
 
 Instalação do uv:
 
@@ -29,93 +29,96 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 2. Instalar o ambiente (uv)
+### 2. Dados
+
+Os dados da competição não vão para o git. Baixe-os da aba *Data* do Kaggle.
+Você precisará de dois itens:
+
+- O arquivo `.db` (base SQLite de referência)
+- Uma pasta com os documentos `.txt` de entrada
+
+### 3. Reprodução e avaliação
+
+Clone o repositório e entre na pasta:
 
 ```bash
-uv sync --frozen          # ambiente base (equivale a: make setup)
+git clone https://github.com/LibnaRaffaely/Desafio-Bracis-Jusbrasil
+cd Desafio-Bracis-Jusbrasil
 ```
 
-Extras opcionais:
+Os scripts `run.sh` (Linux/macOS) e `run.ps1` (Windows) constroem a imagem
+Docker na primeira execução, detectam se o catálogo precisa ser reconstruído
+(quando `artifacts/catalogo_canonico.json` não existe) e gravam a saída em
+`out/submission.csv`.
 
-| Comando | Quando usar |
-|---|---|
-| `uv sync --extra juiz` | Liga o Agente-Juiz (`transformers` + `torch`) |
-| `uv sync --extra llm` | Agentes via llama.cpp (compila na instalação; equivale a `make setup-llm`) |
-
-### 3. Colocar os dados na estrutura `data/` (obrigatório)
-
-Os dados da competição não vão para o git. Baixe-os da aba *Data* do Kaggle
-e organize assim:
-
-```
-data/
-├── txt/                    # documentos de entrada (.txt)
-├── desafio1_bracis.db      # base de referência (SQLite)
-├── goldenset_offsets.csv   # gabarito do dev set
-├── json_to_submission.py   # script oficial
-├── kaggle_metric.py        # métrica oficial
-└── sample_submission.csv
-```
-
-Confira se está tudo certo:
-
-```bash
-uv run python scripts/check_data.py data     # ou: make check-data
-```
-O script sai com código 1 se faltar arquivo ou se os offsets do gabarito não
-baterem com os `.txt`.
-
-> **Via Docker:** a conferência dos dados acontece automaticamente ao iniciar o container.
-
-### 4. Executar o pipeline
-
-**Opção A — Reprodução Via Docker (recomendado):**
 ```bash
 # Linux/macOS
-bash run.sh [argumentos opcionais]
 
-# Windows PowerShell
-.\run.ps1 [argumentos opcionais]
-```
+# usa os dados de data/
+bash run.sh
 
-A imagem é construída automaticamente na primeira execução e reutilizada nas seguintes.
-A saída fica em `out/submission.csv`.
+# informa o banco e a pasta de documentos
+bash run.sh --db <caminho_db> --txt <pasta_txt>
 
-Os argumentos opcionais são os mesmos disponíveis via Makefile/uv (ver tabela de opções abaixo).
-Exemplos:
-```bash
+# gera a submissão e calcula o score local (usa data/goldenset_offsets.csv)
 bash run.sh --avaliar
-bash run.sh --avaliar --gabarito data/goldenset_offsets.csv
-bash run.sh --construir-catalogo --avaliar
+
+# usa outro gabarito, em qualquer pasta
+bash run.sh --avaliar --gabarito <caminho_gabarito>
 ```
 
-**Opção B — Docker manualmente:**
+```powershell
+# Windows PowerShell
 
-```bash
-# construir a imagem
-docker build -t bracis-citacoes .
+# usa os dados de data/
+.\run.ps1
 
-# rodar com os limites do envelope (sem rede, 8 vCPUs, 32 GB RAM)
-docker run \
-  --network none \
-  --cpus 8 \
-  --memory 32g \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/artifacts:/app/artifacts \
-  -v $(pwd)/out:/app/out \
-  bracis-citacoes
+# informa o banco e a pasta de documentos
+.\run.ps1 --db <caminho_db> --txt <pasta_txt>
+
+# gera a submissão e calcula o score local (usa data/goldenset_offsets.csv)
+.\run.ps1 --avaliar
+
+# usa outro gabarito, em qualquer pasta
+.\run.ps1 --avaliar --gabarito <caminho_gabarito>
 ```
 
-No Windows PowerShell, substitua `$(pwd)` por `${PWD}` e `\` por `` ` ``.
+No PowerShell, `-Banco` e `-Txts` continuam aceitos como equivalentes a
+`--db` e `--txt`.
 
-**Opção C — Makefile/uv**
+Todos os argumentos são opcionais e podem ser passados em qualquer ordem.
+Sem `--db` e `--txt`, os scripts usam os dados da pasta `data/`
+(conforme o `data/README.md`).
 
-Na **primeira execução**, o catálogo canônico precisa ser construído a partir
-da base (etapa offline). Ele fica em cache em `artifacts/` e é reaproveitado
-nas execuções seguintes.
+Todos os parâmetros estão na [tabela de parâmetros](#6-parâmetros). 
+A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1`.
+
+
+> **NOTA**:
+> A imagem Docker só é construída se ainda não existir. Use `--rebuild` para
+> reconstruí-la depois de alterar `src/`, `scripts/`, `oficiais/`, `baseline/`,
+> `params/` (por exemplo, ao recalibrar a confiança) ou as dependências
+> (`pyproject.toml` e `uv.lock`).
+>
+> O catálogo é outro caso: se a base `.db` mudar, apague
+> `artifacts/catalogo_canonico.json` para que a próxima execução o reconstrua.
+> `--rebuild` não mexe no catálogo.
+
+### 4. Desenvolvimento
+
+> **NOTA**:
+> O Makefile sempre usa a pasta `data/`. Preencha-a conforme o `data/README.md` antes de rodar qualquer comando.
+
+**Instalar o ambiente:**
 
 ```bash
-# primeira vez: constrói o catálogo e roda o pipeline
+uv sync --frozen
+```
+
+**Rodar o pipeline:**
+
+```bash
+# primeira execução: constrói o catálogo canônico
 make rodar ARGS="--construir-catalogo"
 
 # execuções seguintes
@@ -125,29 +128,34 @@ make rodar
 make rodar ARGS="--avaliar"
 ```
 
+Sem `make`:
+
+```bash
+uv run python -m citacoes.rodar \
+    --db <caminho_db> \
+    --txt <pasta_txt> \
+    --saida out \
+    --construir-catalogo \
+    --avaliar
+```
+
+**Calibrar a confiança**:
+
 A confiança de cada citação vem de `params/tabela_confianca.json`. Sem esse
 arquivo, a submissão sai sem confiança e perde o bônus de calibração, que
 vale até 10%. Depois de mudar a extração, a busca ou a decisão, ajuste a
 tabela de novo e rode outra vez:
 
 ```bash
-make rodar                       # gera out/rastro.jsonl
-make calibrar                    # grava params/tabela_confianca.json
+make rodar                     # gera out/rastro.jsonl
+make calibrar                  # grava params/tabela_confianca.json
 make rodar ARGS="--avaliar"
 ```
 
-Sem `make`, o ajuste é `uv run python scripts/ajustar_confianca.py`.
+Sem `make`: `uv run python scripts/ajustar_confianca.py`.
 Detalhes em [params/README.md](params/README.md).
 
-Sem `make`, o comando da rodada é:
-
-```bash
-uv run python -m citacoes.rodar --txt data/txt --saida out --oficiais data \
-    --db data/desafio1_bracis.db --gabarito data/goldenset_offsets.csv \
-    --construir-catalogo --avaliar
-```
-
-Saídas geradas em `out/`:
+### 5. Saídas geradas em `out/`:
 
 | Arquivo | Conteúdo |
 |---|---|
@@ -157,44 +165,48 @@ Saídas geradas em `out/`:
 | `scores.json` | Score por nível, macro-F1 e τ (só com `--avaliar`) |
 
 Antes de terminar, o pipeline confere as invariantes de `docs/contratos.md`
-e falha se alguma for quebrada. Com `--avaliar`, ele também compara o
-resultado com `baseline/scores.json` e avisa se algum nível piorou.
+e falha se alguma for quebrada. Com `--avaliar`, compara o resultado com
+`baseline/scores.json` e avisa se algum nível piorou.
 
-### 5. Ligar o Agente-Juiz (opcional)
+### 6. Parâmetros
 
-> **Nota:** a submissão final não utilizou o Agente-Juiz. 
-> Esta seção documenta como ativá-lo para experimentação futura.
+Nem todos os parâmetros estão disponíveis nos dois ambientes. Os scripts Docker
+(`run.sh` e `run.ps1`) aceitam apenas os parâmetros de dados e de execução. Os
+demais valem só no desenvolvimento (`make`/`uv`); nos scripts Docker eles têm
+valor fixo (as pastas `params/`, `oficiais/` e `baseline/` copiadas para a
+imagem, e as pastas `out/` e `artifacts/` do repositório).
+
+| Parâmetro | Padrão | Descrição | Scripts Docker | Desenvolvimento |
+|---|---|---|---|---|
+| `--txt` | `data/txt` | Pasta com os documentos `.txt` | Sim | Sim |
+| `--db` | `data/desafio1_bracis.db` | Base SQLite de referência | Sim | Sim |
+| `--gabarito` | `data/goldenset_offsets.csv` | Arquivo de gabarito para `--avaliar` | Sim | Sim |
+| `--avaliar` | desligado | Calcula a métrica local com o gabarito; por padrão usa `data/goldenset_offsets.csv` | Sim | Sim |
+| `--construir-catalogo` | desligado | Reconstrói o catálogo a partir da base | Automático quando o catálogo não existe | Sim |
+| `--rebuild` | desligado | Reconstrói a imagem Docker | Sim | Não se aplica |
+| `--saida` | `out` | Pasta de saída | Não | Sim |
+| `--artifacts` | `artifacts` | Pasta onde o catálogo construído é salvo | Não | Sim |
+| `--params` | `params` | Pasta da tabela de confiança | Não | Sim |
+| `--oficiais` | `oficiais` | Pasta com os scripts oficiais do Kaggle | Não | Sim |
+| `--baseline` | `baseline/scores.json` | Score de referência para o portão de regressão | Não | Sim |
+
+Os caminhos marcados como padrão podem ser sobrescritos passando o parâmetro
+explicitamente. Nos scripts Docker, só `--db`, `--txt` e `--gabarito`:
 
 ```bash
-uv sync --extra juiz
-uv run python -m citacoes.rodar --juiz --modelo CAMINHO_DOS_PESOS --seed 42 --avaliar
+bash run.sh --db data/meu_banco.db --txt data/txt --gabarito outro/gabarito.csv --avaliar
 ```
 
-`--modelo` aceita um caminho local ou um id do Hugging Face. Com id do
-Hugging Face, `--revisao COMMIT` é obrigatório. A execução não usa rede: os
-pesos precisam já estar baixados.
+Para alterar `--saida`, `--artifacts`, `--params`, `--oficiais` ou `--baseline`,
+use o fluxo de desenvolvimento:
 
-### Opções da linha de comando
-
-| Opção | Padrão | Descrição |
-|---|---|---|
-| `--txt` | `data/txt` | Pasta com os documentos `.txt` |
-| `--saida` | `out` | Pasta de saída |
-| `--oficiais` | `data` | Pasta com os scripts oficiais do Kaggle |
-| `--db` | `data/desafio1_bracis.db` | Base usada para construir o catálogo |
-| `--artifacts` | `artifacts` | Onde o catálogo construído fica salvo |
-| `--params` | `params` | Pasta da tabela de confiança |
-| `--construir-catalogo` | desligado | Reconstrói o catálogo a partir da base |
-| `--avaliar` | desligado | Calcula a métrica local com o gabarito |
-| `--gabarito` | `data/goldenset_offsets.csv` | Gabarito usado em `--avaliar` |
-| `--baseline` | `baseline/scores.json` | Score de referência para o portão de regressão |
-| `--juiz` | desligado | Liga o Agente-Juiz |
-| `--modelo` / `--revisao` | — | Pesos do juiz e commit fixado |
-| `--seed` | `42` | Seed do juiz |
+```bash
+uv run python -m citacoes.rodar --db data/desafio1_bracis.db --txt data/txt --params outra_pasta
+```
 
 Ajuda completa: `uv run python -m citacoes.rodar --help`.
 
-### Testes e qualidade de código
+### 7. Testes e qualidade de código
 
 ```bash
 uv run pytest                                   # make test
@@ -203,11 +215,18 @@ uv run ruff format src tests scripts            # make format
 uv run python -m citacoes.grafo.montagem        # make grafo: exporta docs/grafo.mmd
 ```
 
-Avaliação isolada do nó de decisão (Módulo 4):
+Avaliação isolada do nó de decisão (Módulo 4), onde `<pasta_dados>` é a pasta
+que contém o arquivo `.db` e a subpasta `txt/`:
+
+- `--modo isolado`: alimenta o nó de decisão diretamente com os spans do
+  gabarito, sem depender dos módulos anteriores. Mede a qualidade da decisão
+  em si.
+- `--modo integrado`: roda o pipeline completo e avalia a decisão dentro do
+  fluxo real, incluindo o impacto dos módulos de extração e busca.
 
 ```bash
-uv run python scripts/avalia_decisao.py --dados data --modo isolado
-uv run python scripts/avalia_decisao.py --dados data --modo integrado
+uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo isolado
+uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo integrado
 ```
 
 ## Documentação
