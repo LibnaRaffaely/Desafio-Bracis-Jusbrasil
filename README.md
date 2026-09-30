@@ -67,7 +67,16 @@ baterem com os `.txt`.
 
 > **Via Docker:** a conferência dos dados acontece automaticamente ao iniciar o container.
 
-### 4. Reprodução Via Docker (recomendado)
+### 4. Executar o pipeline
+
+**Opção A — Script único (recomendado para reprodutibilidade):**
+```bash
+bash run.sh data/desafio1_bracis.db data/txt
+```
+Constrói a imagem Docker e roda o pipeline. Requer apenas Docker instalado.
+A saída fica em `out/submission.csv`.
+
+**Opção B — Docker manualmente:**
 
 ```bash
 # construir a imagem
@@ -86,7 +95,7 @@ docker run \
 
 No Windows PowerShell, substitua `$(pwd)` por `${PWD}` e `\` por `` ` ``.
 
-### 5. Gerar a submissão (via Makefile/uv)
+**Opção C — Makefile/uv**
 
 Na **primeira execução**, o catálogo canônico precisa ser construído a partir
 da base (etapa offline). Ele fica em cache em `artifacts/` e é reaproveitado
