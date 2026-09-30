@@ -8,11 +8,14 @@ normalização, catálogo, decisão) e um Agente-Juiz LLM opcional.
 
 ### 1. Pré-requisitos
 
+**Via Docker (recomendado):**
+- [Docker](https://docs.docker.com/get-docker/) 
+
+**Via Makefile/uv:**
 - Python 3.12 (fixado em `.python-version`; o mínimo é 3.11).
 - [uv](https://docs.astral.sh/uv/) para gerenciar o ambiente.
 - `make` é opcional. Sem ele, use os comandos `uv run ...` indicados abaixo.
 - Para o Agente-Juiz: GPU com CUDA e os pesos do modelo baixados localmente.
-- [Docker](https://docs.docker.com/get-docker/) para reprodução via container (recomendado).
 
 Instalação do uv:
 
@@ -26,7 +29,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 2. Instalar o ambiente
+### 2. Instalar o ambiente (uv)
 
 ```bash
 uv sync --frozen          # ambiente base (equivale a: make setup)
@@ -39,7 +42,7 @@ Extras opcionais:
 | `uv sync --extra juiz` | Liga o Agente-Juiz (`transformers` + `torch`) |
 | `uv sync --extra llm` | Agentes via llama.cpp (compila na instalação; equivale a `make setup-llm`) |
 
-### 3. Colocar os dados
+### 3. Colocar os dados (Obrigatório para ambas as vias)
 
 Os dados da competição não vão para o git. Baixe-os da aba *Data* do Kaggle
 e organize assim:
@@ -60,10 +63,31 @@ Confira se está tudo certo:
 uv run python scripts/check_data.py data     # ou: make check-data
 ```
 
+> **Via Docker:** a conferência dos dados acontece automaticamente ao iniciar o container.
+
 O script sai com código 1 se faltar arquivo ou se os offsets do gabarito não
 baterem com os `.txt`.
 
-### 4. Gerar a submissão
+### 4. Reprodução Via Docker (recomendado)
+
+```bash
+# construir a imagem
+docker build -t bracis-citacoes .
+
+# rodar com os limites do envelope (sem rede, 8 vCPUs, 32 GB RAM)
+docker run \
+  --network none \
+  --cpus 8 \
+  --memory 32g \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/artifacts:/app/artifacts \
+  -v $(pwd)/out:/app/out \
+  bracis-citacoes
+```
+
+No Windows PowerShell, substitua `$(pwd)` por `${PWD}` e `\` por `` ` ``.
+
+### 5. Gerar a submissão (via Makefile/uv)
 
 Na **primeira execução**, o catálogo canônico precisa ser construído a partir
 da base (etapa offline). Ele fica em cache em `artifacts/` e é reaproveitado
@@ -114,25 +138,6 @@ Saídas geradas em `out/`:
 Antes de terminar, o pipeline confere as invariantes de `docs/contratos.md`
 e falha se alguma for quebrada. Com `--avaliar`, ele também compara o
 resultado com `baseline/scores.json` e avisa se algum nível piorou.
-
-### 5. Reprodução Via Docker (recomendado)
-
-```bash
-# construir a imagem
-docker build -t bracis-citacoes .
-
-# rodar com os limites do envelope (sem rede, 8 vCPUs, 32 GB RAM)
-docker run \
-  --network none \
-  --cpus 8 \
-  --memory 32g \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/artifacts:/app/artifacts \
-  -v $(pwd)/out:/app/out \
-  bracis-citacoes
-```
-
-No Windows PowerShell, substitua `$(pwd)` por `${PWD}` e `\` por `` ` ``.
 
 ### 6. Ligar o Agente-Juiz (opcional)
 
