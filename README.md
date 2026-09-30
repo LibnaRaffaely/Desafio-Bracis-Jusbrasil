@@ -12,6 +12,7 @@ normalização, catálogo, decisão) e um Agente-Juiz LLM opcional.
 - [uv](https://docs.astral.sh/uv/) para gerenciar o ambiente.
 - `make` é opcional. Sem ele, use os comandos `uv run ...` indicados abaixo.
 - Para o Agente-Juiz: GPU com CUDA e os pesos do modelo baixados localmente.
+- [Docker](https://docs.docker.com/get-docker/) para reprodução via container (recomendado).
 
 Instalação do uv:
 
