@@ -81,10 +81,12 @@ bash run.sh [argumentos opcionais]
 A imagem é construída automaticamente na primeira execução e reutilizada nas seguintes.
 A saída fica em `out/submission.csv`.
 
+Os argumentos opcionais são os mesmos disponíveis via Makefile/uv (ver tabela de opções abaixo).
 Exemplos:
 ```bash
 bash run.sh --avaliar
 bash run.sh --avaliar --gabarito data/goldenset_offsets.csv
+bash run.sh --construir-catalogo --avaliar
 ```
 
 **Opção B — Docker manualmente:**
