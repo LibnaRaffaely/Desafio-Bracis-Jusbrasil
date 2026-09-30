@@ -21,6 +21,8 @@ COPY params/ params/
 COPY scripts/ scripts/
 COPY Makefile ./
 COPY oficiais/ oficiais/
+COPY docs/ docs/
+COPY baseline/ baseline/
 
 # dados
 VOLUME ["/app/data", "/app/artifacts", "/app/out"]
