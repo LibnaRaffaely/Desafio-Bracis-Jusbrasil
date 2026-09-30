@@ -62,11 +62,10 @@ Confira se está tudo certo:
 ```bash
 uv run python scripts/check_data.py data     # ou: make check-data
 ```
-
-> **Via Docker:** a conferência dos dados acontece automaticamente ao iniciar o container.
-
 O script sai com código 1 se faltar arquivo ou se os offsets do gabarito não
 baterem com os `.txt`.
+
+> **Via Docker:** a conferência dos dados acontece automaticamente ao iniciar o container.
 
 ### 4. Reprodução Via Docker (recomendado)
 
