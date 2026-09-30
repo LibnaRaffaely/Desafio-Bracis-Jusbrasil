@@ -296,28 +296,53 @@ def _argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("--txt", type=Path, default=Path("data/txt"), help="pasta com os .txt")
+    p.add_argument("--txt", type=Path, default=None, help="pasta com os .txt (padrão: data/txt)")
     p.add_argument("--saida", type=Path, default=Path("out"), help="pasta de saída")
     p.add_argument("--artifacts", type=Path, default=Path("artifacts"), help="catálogo pronto")
     p.add_argument("--params", type=Path, default=Path("params"), help="tabela de confiança")
     p.add_argument(
         "--oficiais",
         type=Path,
-        default=Path("data"),
+        default=Path("oficiais"),
         help="pasta com json_to_submission.py e kaggle_metric.py oficiais",
     )
     p.add_argument("--construir-catalogo", action="store_true", help="reconstrói artifacts/")
-    p.add_argument("--db", type=Path, default=Path("data/desafio1_bracis.db"))
+    p.add_argument("--db", type=Path, default=None, help="base SQLite (padrão: data/desafio1_bracis.db)")
     p.add_argument("--extrator-llm", action="store_true")
     p.add_argument("--parser-llm", action="store_true")
-    p.add_argument("--juiz", action="store_true")
-    p.add_argument("--modelo", help="pesos do juiz: caminho local ou id do HF")
-    p.add_argument("--revisao", help="commit fixo dos pesos (obrigatório para id do HF)")
-    p.add_argument("--seed", type=int, default=42)
+
+    ## A solução foi deterministica, não acho que valha o risco de permitir esse fluxo sem ter testado ele
+    #p.add_argument("--juiz", action="store_true")
+    #p.add_argument("--modelo", help="pesos do juiz: caminho local ou id do HF")
+    #p.add_argument("--revisao", help="commit fixo dos pesos (obrigatório para id do HF)")
+    #p.add_argument("--seed", type=int, default=42) 
+
     p.add_argument("--avaliar", action="store_true")
-    p.add_argument("--gabarito", type=Path, default=Path("data/goldenset_offsets.csv"))
+    p.add_argument("--gabarito", type=Path, default=None, help="gabarito para avaliação (padrão: data/goldenset_offsets.csv)")
     p.add_argument("--baseline", type=Path, default=Path("baseline/scores.json"))
-    return p.parse_args(argv)
+
+    args = p.parse_args(argv)
+
+    # fallback para data/ se não passado explicitamente
+    if args.txt is None:
+        args.txt = Path("data/txt")
+    if args.db is None:
+        args.db = Path("data/desafio1_bracis.db")
+    if args.gabarito is None:
+        args.gabarito = Path("data/goldenset_offsets.csv")
+
+    if not args.txt.exists():
+        sys.exit(
+        f"Pasta de .txt não encontrada: {args.txt}\n"
+        f"Passe o caminho com --txt ou coloque os dados em data/txt"
+        )
+    if not args.db.exists():
+        sys.exit(
+            f"Base não encontrada: {args.db}\n"
+            f"Passe o caminho com --db ou coloque os dados em data/desafio1_bracis.db"
+        )
+
+    return args
 
 
 def _saida_tolerante() -> None:
@@ -342,10 +367,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     contexto = Contexto(
         catalogo=carregar_catalogo(args.artifacts, args.db, args.construir_catalogo),
         tabela_confianca=carregar_tabela_confianca(args.params),
-        modelo_llm=carregar_modelo(args),
+        modelo_llm=None,
         usar_extrator_llm=args.extrator_llm,
         usar_parser_llm=args.parser_llm,
-        usar_juiz=args.juiz,
+        usar_juiz=False,
     )
     resultados = rodar_documentos(caminhos, contexto)
 
