@@ -6,11 +6,7 @@ Este documento descreve a solução entregue para o Desafio BRACIS 2026 (JusBras
 
 A solução verifica citações jurídicas em documentos de texto e classifica cada uma como `real`, `inventada` ou `incompleta`. Quando a citação é real, devolve também o identificador canônico do registro na base.
 
-A entrega é um pipeline **determinístico**: extração por regras, normalização, busca em um catálogo canônico e decisão por cardinalidade de candidatos. Não há modelo de linguagem na execução, portanto:
-
-* não há pesos de modelos para baixar;
-* a execução é totalmente offline (`--network none` no Docker);
-* a mesma entrada gera sempre a mesma saída.
+A entrega é um pipeline **determinístico**: extração por regras, normalização, busca em um catálogo canônico e decisão por cardinalidade de candidatos. Não há modelo de linguagem na execução.
 
 ## Como chegamos a essa abordagem
 
@@ -22,7 +18,7 @@ Os agentes continuam no código, desligados por padrão, e os parâmetros que os
 
 O processamento tem duas etapas.
 
-**1. Offline, uma vez por base:** construção do catálogo canônico a partir do `.db`. O resultado fica em `artifacts/catalogo_canonico.json`.
+**1. Uma vez por base:** construção do catálogo canônico a partir do `.db`. O resultado fica em `artifacts/catalogo_canonico.json`.
 
 **2. Por documento:** um grafo extrai as citações e dispara um subgrafo independente para cada uma.
 
@@ -49,7 +45,7 @@ Pontos principais:
 * a busca usa uma chave normalizada, construída pelos dois lados (citação e catálogo) com a mesma função, e não uma consulta FTS5 por frase (decisão D1);
 * o número próprio de cada acórdão é extraído por regras específicas por tribunal (decisão D3);
 * artigos de lei só casam quando o diploma é reconhecido e igual dos dois lados (decisão D5);
-* a verificação do hash está registrada na decisão D10.
+* a verificação do hash impede que um catálogo de outra base seja reaproveitado em silêncio; o pipeline para e pede `--construir-catalogo` (decisão D10).
 
 Tempo de construção: [PLACEHOLDER: tempo em minutos].
 
@@ -71,7 +67,7 @@ Na dúvida entre real e inventada, `incompleta` é a pior aposta pela métrica, 
 
 A confiança de cada citação vem de `params/tabela_confianca.json`, que guarda a taxa de acerto por `metodo_decisao` e `metodo_busca`, suavizada por Laplace. A confiança nunca altera a classe nem o identificador. Sem a tabela, a submissão sai sem confiança e perde o bônus de calibração.
 
-A tabela é gerada por `make calibrar` (ver seção 4 do README).
+A tabela é gerada por `make calibrar` (ver seção 4 do README) e fica versionada em `params/` e a imagem Docker a copia no build. 
 
 ## Reprodutibilidade
 
@@ -81,7 +77,6 @@ A tabela é gerada por `make calibrar` (ver seção 4 do README).
 * Sem modelos de linguagem, sem GPU.
 * Sem caminhos absolutos: os dados entram por `--db` e `--txt`, ou pela pasta `data/`.
 * O container é removido ao fim de cada execução (`--rm`, decisão D9); os resultados ficam em `out/` e `artifacts/`.
-* Determinismo da saída: o hash SHA-256 do `submission.csv` é idêntico entre execuções repetidas e entre Windows e Linux (WSL), com os mesmos `.db` e `.txt`.
 
 ## Resultados
 
@@ -93,8 +88,6 @@ Medidos no dev set local (26 documentos, `goldenset_offsets.csv`), com a métric
 | **Solução entregue** | **1,0998** | [PLACEHOLDER] | [PLACEHOLDER] |
 
 O teto da métrica é 1,1. Na solução entregue: macro-F1 [PLACEHOLDER], τ [PLACEHOLDER], bônus de calibração [PLACEHOLDER].
-
-Score na submissão oficial do Kaggle: [PLACEHOLDER].
 
 Evolução detalhada, com a evidência de cada mudança, em [melhorias_score.md](melhorias_score.md).
 
