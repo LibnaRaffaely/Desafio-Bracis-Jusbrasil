@@ -101,6 +101,13 @@ A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1
 >  O `--rebuild` também executa o pipeline em
 > seguida, então exige `--db` e `--txt` (ou os dados em `data/`).
 
+> **NOTA**:
+> Os scripts só passam `--construir-catalogo` sozinhos quando `artifacts/` não tem
+> catálogo. Se a base mudar, ou se o catálogo vier de uma versão anterior sem o hash
+> do `.db` (`artifacts/catalogo_canonico.db.sha256`), o pipeline para com a mensagem
+> "O catálogo ... não corresponde à base ...". Nesse caso, rode de novo com
+> `--construir-catalogo` (por exemplo, `.\run.ps1 --avaliar --construir-catalogo`).
+
 
 ### 4. Desenvolvimento
 
@@ -164,11 +171,11 @@ Detalhes em [params/README.md](params/README.md).
 | `rastro.jsonl` | Uma linha por citação, com método de busca e de decisão |
 | `scores.json` | Score por nível, macro-F1 e τ (só com `--avaliar`) |
 
-<!-- Issso aqui precisa ser validado, acredito que o o erros.csv é resultado dessa verificação
-mas ela noa esta implementada e se não for, preicsa tirar a menção a ela -->
 Antes de terminar, o pipeline confere as invariantes de `docs/contratos.md`
 e falha se alguma for quebrada. Com `--avaliar`, compara o resultado com
-`baseline/scores.json` e avisa se algum nível piorou.
+`baseline/scores.json` e avisa se algum nível piorou. O relatório de erros
+por citação (`erros.csv`, previsto em `docs/avaliacao.md`) não é gerado
+nesta versão.
 
 ### 6. Parâmetros
 
@@ -230,9 +237,37 @@ uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo isolado
 uv run python scripts/avalia_decisao.py --dados <pasta_dados> --modo integrado
 ```
 
+## Organização do repositório
+
+```
+src/citacoes/   código do pipeline (grafo, nós, catálogo, domínio, avaliação); ponto de entrada em rodar.py
+params/         tabela de confiança calibrada (vai para a imagem Docker)
+oficiais/       scripts oficiais do desafio: json_to_submission.py e kaggle_metric.py
+baseline/       scores de referência para o portão de regressão
+scripts/        utilitários: checagem dos dados, ajuste da confiança, avaliação da extração e da decisão
+tests/          testes (pytest)
+docs/           arquitetura, contratos, avaliação, decisões, abordagem
+notebooks/      exploração
+data/           dados da competição (fora do git, ver data/README.md)
+artifacts/      catálogo canônico construído e hash do .db de origem (gerado, fora do git)
+out/            saídas de cada execução (gerado, fora do git)
+run.sh, run.ps1, Dockerfile, Makefile
+```
+
+A pasta `oficiais/` guarda, sem alteração, os scripts fornecidos pela organização
+do desafio. Eles ficam versionados porque não contêm dados sensíveis e são
+usados pela solução: `json_to_submission.py` converte os JSON por documento no
+`submission.csv`, e `kaggle_metric.py` calcula o score local com `--avaliar`.
+A imagem Docker copia a pasta, e o caminho pode ser trocado com `--oficiais`
+no fluxo de desenvolvimento.
+
 ## Abordagem
 
-A solução é determinística: extração, normalização, busca no catálogo canônico (chave normalizada, construído a partir da base SQLite) e decisão por heurística calibrada. Não usa modelos de linguagem na execução, por isso não há pesos de modelos a baixar, e a execução roda offline. Os detalhes estão em [docs/abordagem_entrega.md](docs/abordagem_entrega.md). 
+A solução é determinística: extração por regras, normalização, busca no catálogo canônico (chave normalizada, construído a partir da base SQLite) e decisão pela cardinalidade de candidatos, com confiança calibrada por tabela. Não usa modelos de linguagem na execução, por isso não há pesos de modelos a baixar, e a execução roda offline.
+
+No dev set (26 documentos, 192 citações), o score final é 1,0998 (teto 1,1), com macro-F1 1,0 e τ = 0 nos dois níveis. A construção do catálogo leva cerca de 20 s e uma execução completa, menos de 1 minuto.
+
+O resumo das principais decisões, os resultados e as limitações estão em [docs/abordagem_entrega.md](docs/abordagem_entrega.md); o registro de cada decisão, em [docs/decisoes.md](docs/decisoes.md).
 
 ## Documentação
 

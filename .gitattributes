@@ -1,3 +1,3 @@
 run.sh text eol=lf
-data/json_to_submission.py text eol=lf
-data/kaggle_metric.py text eol=lf
+oficiais/json_to_submission.py text eol=lf
+oficiais/kaggle_metric.py text eol=lf

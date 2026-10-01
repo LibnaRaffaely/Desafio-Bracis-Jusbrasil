@@ -23,7 +23,8 @@ Dados da competição e pesos de modelos **nunca** vão para o git.
 
 ```
 docs/           arquitetura, contratos, avaliação, decisões, reprodutibilidade
-scripts/        check_data.py
+scripts/        checagem dos dados, ajuste da confiança, avaliação da extração e da decisão
+oficiais/       scripts oficiais do desafio (json_to_submission.py, kaggle_metric.py), sem alteração
 src/citacoes/
 ├── grafo/      estados, montagem dos grafos, roteamento
 ├── nos/        nós determinísticos (funções puras)
@@ -35,10 +36,14 @@ params/         parâmetros ajustados que vão no bundle
 baseline/       melhor score aceito
 notebooks/      exploração livre
 tests/
+data/           dados da competição (fora do git, ver data/README.md)
+artifacts/      catálogo canônico e hash do .db de origem (gerado, fora do git)
+out/            saídas de cada execução (gerado, fora do git)
 ```
 
 Cada pasta tem um README com o que entra nela. Comece por
-`docs/arquitetura.md`.
+`docs/arquitetura.md`. A descrição das pastas da entrega está na seção
+"Organização do repositório" do [README](../README.md).
 
 ## Como trabalhamos
 

@@ -30,6 +30,11 @@ Cada modo deve gerar um `erros.csv` com uma linha por citação e uma
 categoria: `span_perdido`, `falso_positivo`, `classe_trocada`, `id_errado`,
 `erro_tau`, `acerto`. Esse arquivo é o quadro de erros do trio.
 
+> **Situação na entrega:** planejado, não implementado (D11). O `rodar.py`
+> com `--avaliar` avisa e segue. Para o nó de decisão,
+> `scripts/avalia_decisao.py` já grava um CSV de erros por citação a partir
+> dos spans do gabarito.
+
 ## Sanidade da métrica
 
 1. Converter o gabarito em submissão com confiança 1,0 e passar no

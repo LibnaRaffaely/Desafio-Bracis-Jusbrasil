@@ -283,10 +283,8 @@ def avaliar(
     print(f"final: {scores['final']:.4f}")
     destino.write_text(json.dumps(scores, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print(
-        "erros.csv: src/citacoes/avaliacao/ ainda não tem gerador (docs/avaliacao.md); pulado.",
-        file=sys.stderr,
-    )
+    # erros.csv (docs/avaliacao.md) fica como trabalho futuro (D11).
+    print("erros.csv: não é gerado nesta versão (ver docs/avaliacao.md).")
     _comparar_baseline(scores, baseline)
     return scores
 
