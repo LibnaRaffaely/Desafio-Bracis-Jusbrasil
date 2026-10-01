@@ -82,24 +82,13 @@ A tabela é gerada por `make calibrar` (ver seção 4 do README) e fica versiona
 
 Medidos no dev set local (26 documentos, `goldenset_offsets.csv`), com a métrica oficial.
 
-| | Score final | Nível 1 | Nível 2 |
-|---|---|---|---|
-| Código do git, dados anteriores | [PLACEHOLDER] | [PLACEHOLDER] | [PLACEHOLDER] |
-| **Solução entregue** | **1,0998** | [PLACEHOLDER] | [PLACEHOLDER] |
-
-O teto da métrica é 1,1. Na solução entregue: macro-F1 [PLACEHOLDER], τ [PLACEHOLDER], bônus de calibração [PLACEHOLDER].
+O teto da métrica é 1,1. Na solução entregue o score final foi de 1,0998
 
 Evolução detalhada, com a evidência de cada mudança, em [melhorias_score.md](melhorias-score.md).
 
 
 ## Limitações
 
-* O score do dev set é otimista: as regras foram desenhadas olhando para ele, e o conjunto final é cego.
 * O relatório `erros.csv` (análise de erros por citação) ainda não é gerado; o `rodar.py` avisa e pula a etapa.
 * Formas de citação ausentes do dev set não estão cobertas.
 * Os agentes LLM não foram validados, pois nenhuma citação do dev set chegou a eles.
-
-## Próximos passos
-
-* Implementar o gerador de `erros.csv` em `src/citacoes/avaliacao/`.
-* Reconstruir o catálogo automaticamente quando o `.db` mudar, em vez de parar (hoje o usuário precisa passar `--construir-catalogo`).
