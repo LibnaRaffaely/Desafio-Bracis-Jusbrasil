@@ -88,7 +88,7 @@ Medidos no dev set local (26 documentos, 192 citações, `goldenset_offsets.csv`
 O teto da métrica é 1,1. Na solução entregue, nos dois níveis: macro-F1 1,0, τ = 0 e bônus de calibração 0,0999 (nível 1) e 0,0998 (nível 2). O resultado foi reproduzido num clone limpo da branch de entrega seguindo a seção 3 do README.
 
 Evolução detalhada, com a evidência de cada mudança, em [melhorias-score.md](melhorias-score.md).
-
+a
 ## Limitações
 
 * O score do dev set é otimista: as regras foram desenhadas olhando para ele, e o conjunto final é cego. Dois indícios de que a solução não apenas decora o dev set: o bônus de calibração medido deixando um documento de fora fica em 0,093, contra 0,094 no próprio dev set, e, com ruído sintético em 10 sementes, as inventadas marcadas como reais (τ) caíram de 11 para 0 ([melhorias-score.md](melhorias-score.md)).
@@ -96,7 +96,3 @@ Evolução detalhada, com a evidência de cada mudança, em [melhorias-score.md]
 * O relatório `erros.csv` (uma linha por citação com a categoria do erro, previsto em [avaliacao.md](avaliacao.md)) não é gerado nesta versão. Para o módulo de decisão, `scripts/avalia_decisao.py` já gera um CSV equivalente, usando os spans do gabarito.
 * Os agentes LLM não foram validados, pois nenhuma citação do dev set chegou a eles.
 
-## Próximos passos
-
-* Implementar o gerador de `erros.csv` de ponta a ponta em `src/citacoes/avaliacao/`, reaproveitando o casamento de spans de `avaliacao/calibracao.py`.
-* Reconstruir o catálogo automaticamente quando o `.db` mudar, em vez de parar (hoje é preciso passar `--construir-catalogo`).
