@@ -1,9 +1,10 @@
 # bracis-citacoes
 
 Verificador de citações jurídicas para o Desafio BRACIS 2026 (Jusbrasil).
-Pipeline híbrido orquestrado com LangGraph: nós determinísticos
-(extração, normalização, catálogo, decisão, calibração) e três agentes LLM
-opcionais ligados por arestas condicionais.
+Pipeline determinístico orquestrado com LangGraph: extração, normalização,
+catálogo, decisão e calibração. A arquitetura previa três agentes LLM
+opcionais (extrator, parser e juiz); eles continuam no código, mas ficam
+desligados na solução entregue (D8 em `docs/decisoes.md`).
 
 ## Começando
 
@@ -14,8 +15,9 @@ make setup                                         # ambiente base
 make check-data
 ```
 
-`make setup-llm` instala também os agentes (compila o llama.cpp). Só é
-necessário quando alguém for trabalhar neles.
+`make setup-llm` instala também os agentes (compila o llama.cpp). A
+solução entregue não precisa dele; só serve para quem for retomar os
+agentes.
 
 Dados da competição e pesos de modelos **nunca** vão para o git.
 
@@ -28,7 +30,7 @@ oficiais/       scripts oficiais do desafio (json_to_submission.py, kaggle_metri
 src/citacoes/
 ├── grafo/      estados, montagem dos grafos, roteamento
 ├── nos/        nós determinísticos (funções puras)
-├── agentes/    agentes LLM, schemas e prompts
+├── agentes/    agentes LLM, schemas e prompts (desligados, D8)
 ├── catalogo/   construção offline do catálogo canônico
 ├── dominio/    léxico, chave-esqueleto, injetor de ruído
 └── avaliacao/  métrica local, três modos, portão de regressão
@@ -54,7 +56,8 @@ Cada pasta tem um README com o que entra nela. Comece por
   (`docs/avaliacao.md`).
 - Decisões com evidência em `docs/decisoes.md`.
 - Submissões por uma pessoa só, com changelog e score local por nível.
-- Agentes LLM ficam desligados até a análise de erro mostrar que valem.
+- Agentes LLM ficam desligados até a análise de erro mostrar que valem; na
+  entrega, ela não mostrou (D8).
 
 ## Datas
 
