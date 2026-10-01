@@ -51,6 +51,9 @@ Os scripts `run.sh` (Linux/macOS) e `run.ps1` (Windows) constroem a imagem
 Docker na primeira execução, detectam se o catálogo precisa ser reconstruído
 (quando `artifacts/catalogo_canonico.json` não existe) e gravam a saída em
 `out/submission.csv`.
+Todos os argumentos são opcionais e podem ser passados em qualquer ordem.
+Sem `--db` e `--txt`, os scripts usam os dados da pasta `data/`
+(conforme o `data/README.md`).
 
 ```bash
 # Linux/macOS
@@ -87,26 +90,17 @@ bash run.sh --avaliar --gabarito <caminho_gabarito>
 No PowerShell, `-Banco` e `-Txts` continuam aceitos como equivalentes a
 `--db` e `--txt`.
 
-Todos os argumentos são opcionais e podem ser passados em qualquer ordem.
-Sem `--db` e `--txt`, os scripts usam os dados da pasta `data/`
-(conforme o `data/README.md`).
-
 Todos os parâmetros estão na [tabela de parâmetros](#6-parâmetros). 
 A coluna "Scripts Docker" indica quais funcionam nos scripts `run.sh` e `run.ps1`.
 
 
 > **NOTA**:
-> A imagem Docker só é construída se ainda não existir. Use `--rebuild` para
-> reconstruí-la depois de alterar `src/`, `scripts/`, `oficiais/`, `baseline/`,
-> `params/` (por exemplo, ao recalibrar a confiança) ou as dependências
-> (`pyproject.toml` e `uv.lock`). O `--rebuild` também executa o pipeline em
+> A imagem Docker só é construída se ainda não existir. É necessário `--rebuild` para
+> reconstruí-la em caso de alteração em `src/`, `scripts/`, `oficiais/`, `baseline/`,
+> `params/` ou as dependências (`pyproject.toml` e `uv.lock`).
+>  O `--rebuild` também executa o pipeline em
 > seguida, então exige `--db` e `--txt` (ou os dados em `data/`).
->
-> O catálogo é gerado a partir do `.db`. Se a base mudar, o pipeline para e
-> pede `--construir-catalogo`, que o reconstrói a partir da nova base.
-> `--rebuild` não mexe no catálogo.
->
-> A rede só é necessária para construir a imagem, não para a execução.
+
 
 ### 4. Desenvolvimento
 
@@ -170,15 +164,16 @@ Detalhes em [params/README.md](params/README.md).
 | `rastro.jsonl` | Uma linha por citação, com método de busca e de decisão |
 | `scores.json` | Score por nível, macro-F1 e τ (só com `--avaliar`) |
 
+<!-- Issso aqui precisa ser validado, acredito que o o erros.csv é resultado dessa verificação
+mas ela noa esta implementada e se não for, preicsa tirar a menção a ela -->
 Antes de terminar, o pipeline confere as invariantes de `docs/contratos.md`
 e falha se alguma for quebrada. Com `--avaliar`, compara o resultado com
 `baseline/scores.json` e avisa se algum nível piorou.
 
 ### 6. Parâmetros
 
-Nem todos os parâmetros estão disponíveis nos dois ambientes. Os scripts Docker
-(`run.sh` e `run.ps1`) aceitam apenas os parâmetros de dados e de execução. Os
-demais valem só no desenvolvimento (`make`/`uv`); nos scripts Docker eles têm
+Os scripts Docker (`run.sh` e `run.ps1`) aceitam apenas os parâmetros de dados e de execução. 
+Os demais valem só no desenvolvimento; nos scripts Docker eles têm
 valor fixo (as pastas `params/`, `oficiais/` e `baseline/` copiadas para a
 imagem, e as pastas `out/` e `artifacts/` do repositório).
 
