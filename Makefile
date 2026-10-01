@@ -1,7 +1,7 @@
 .PHONY: setup setup-llm check-data test lint format rodar calibrar grafo
 
 setup:        ## ambiente base
-	uv sync
+	uv sync --frozen
 
 setup-llm:    ## ambiente + agentes LLM (compila o llama.cpp)
 	uv sync --extra llm
@@ -9,7 +9,7 @@ setup-llm:    ## ambiente + agentes LLM (compila o llama.cpp)
 DADOS ?= data
 
 rodar:        ## gera out/submission.csv (ex.: make rodar ARGS="--avaliar")
-	uv run python -m citacoes.rodar --txt $(DADOS)/txt --saida out --oficiais $(DADOS) \
+	uv run python -m citacoes.rodar --txt $(DADOS)/txt --saida out --oficiais oficiais \
 		--db $(DADOS)/desafio1_bracis.db --gabarito $(DADOS)/goldenset_offsets.csv $(ARGS)
 
 calibrar:     ## ajusta params/tabela_confianca.json com a última rodada (rode make rodar antes)

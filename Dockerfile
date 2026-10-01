@@ -21,13 +21,13 @@ COPY params/ params/
 COPY scripts/ scripts/
 COPY Makefile ./
 COPY oficiais/ oficiais/
+COPY docs/ docs/
+COPY baseline/ baseline/
 
 # dados
 VOLUME ["/app/data", "/app/artifacts", "/app/out"]
 
 # Reproduzindo a submissão: 
 CMD ["uv", "run", "python", "-m", "citacoes.rodar", \
-     "--txt", "data/txt", \
      "--saida", "out", \
-     "--oficiais", "oficiais", \
-     "--db", "data/desafio1_bracis.db"]
+     "--oficiais", "oficiais"]
