@@ -89,7 +89,7 @@ Medidos no dev set local (26 documentos, `goldenset_offsets.csv`), com a métric
 
 O teto da métrica é 1,1. Na solução entregue: macro-F1 [PLACEHOLDER], τ [PLACEHOLDER], bônus de calibração [PLACEHOLDER].
 
-Evolução detalhada, com a evidência de cada mudança, em [melhorias_score.md](melhorias_score.md).
+Evolução detalhada, com a evidência de cada mudança, em [melhorias_score.md](melhorias-score.md).
 
 
 ## Limitações
